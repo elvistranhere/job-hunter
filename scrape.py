@@ -35,7 +35,7 @@ logging.getLogger("tls_client").setLevel(logging.WARNING)
 LOCATIONS = ["Adelaide, Australia", "Sydney, Australia", "Melbourne, Australia"]
 
 # ── Sites ────────────────────────────────────────────────────────────────────
-SITES = ["indeed", "linkedin"]
+SITES = ["indeed"]
 
 # ── Company tiers ────────────────────────────────────────────────────────────
 TIER_BIG_TECH = {
@@ -344,7 +344,7 @@ def run_search(search_term: str, location: str, defaults: dict) -> pd.DataFrame 
         "hours_old": defaults.get("hours_old", 72),
         "description_format": "markdown",
         "country_indeed": "Australia",
-        "linkedin_fetch_description": True,
+
         "verbose": 0,
     }
 
@@ -412,7 +412,7 @@ def scrape_all(locations: list[str], search_terms: list[str], defaults: dict) ->
             "hours_old": defaults.get("hours_old", 72),
             "description_format": "markdown",
             "country_indeed": "Australia",
-            "linkedin_fetch_description": True,
+    
             "is_remote": True,
             "verbose": 0,
         }

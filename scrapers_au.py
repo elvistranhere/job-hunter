@@ -447,5 +447,106 @@ def scrape_au_sites(search_term: str, city: str) -> list[dict]:
     print(f" {len(prosple)}", end="", flush=True)
     all_results.extend(prosple)
 
-    print()
+    print(f"  LinkedIn...", end="", flush=True)
+    linkedin = scrape_linkedin(search_term, city)
+    print(f" {len(linkedin)}")
+    all_results.extend(linkedin)
+
     return all_results
+
+
+# ─── LinkedIn (guest API, no login needed) ──────────────────────────────────
+
+LINKEDIN_LOCATIONS = {
+    "adelaide": "Adelaide%2C+South+Australia%2C+Australia",
+    "sydney": "Sydney%2C+New+South+Wales%2C+Australia",
+    "melbourne": "Melbourne%2C+Victoria%2C+Australia",
+}
+
+
+def scrape_linkedin(search_term: str, city: str, max_results: int = 50) -> list[dict]:
+    """Scrape LinkedIn jobs via the public guest API (no login required)."""
+    city_key = city.lower().split(",")[0].strip()
+    location = LINKEDIN_LOCATIONS.get(city_key, "Australia")
+
+    results = []
+    seen_ids = set()
+
+    for start in range(0, max_results, 25):
+        url = (
+            f"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
+            f"?keywords={quote_plus(search_term)}&location={location}&start={start}"
+        )
+
+        try:
+            resp = requests.get(url, headers=HEADERS, timeout=15)
+            if resp.status_code != 200:
+                break
+        except Exception as e:
+            print(f"      LinkedIn error: {e}")
+            break
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        cards = soup.find_all("div", class_="base-search-card")
+        if not cards:
+            break
+
+        for card in cards:
+            job = _parse_linkedin_card(card)
+            if job and job["job_id"] not in seen_ids:
+                seen_ids.add(job.pop("job_id"))
+                results.append(job)
+
+        if len(cards) < 25:
+            break
+        time.sleep(1.5)
+
+    return results
+
+
+def _parse_linkedin_card(card) -> dict | None:
+    """Parse a LinkedIn guest API job card."""
+    try:
+        # Job ID from data-entity-urn
+        urn = card.get("data-entity-urn", "")
+        job_id = urn.split(":")[-1] if urn else ""
+
+        # Title
+        title_el = card.find("h3", class_="base-search-card__title")
+        title = title_el.get_text(strip=True) if title_el else ""
+        if not title:
+            return None
+
+        # Company
+        company_el = card.find("h4", class_="base-search-card__subtitle")
+        company = ""
+        if company_el:
+            a_tag = company_el.find("a")
+            company = a_tag.get_text(strip=True) if a_tag else company_el.get_text(strip=True)
+
+        # Location
+        loc_el = card.find("span", class_="job-search-card__location")
+        location = loc_el.get_text(strip=True) if loc_el else ""
+
+        # Date
+        time_el = card.find("time")
+        date_posted = time_el.get("datetime", "") if time_el else ""
+
+        # URL
+        link_el = card.find("a", class_="base-card__full-link")
+        job_url = ""
+        if link_el:
+            job_url = link_el.get("href", "").split("?")[0]  # strip tracking params
+
+        return {
+            "title": title,
+            "company": company,
+            "location": location,
+            "job_url": job_url,
+            "date_posted": date_posted,
+            "description": "",  # guest API doesn't include descriptions
+            "site": "linkedin",
+            "job_id": job_id,
+        }
+    except Exception:
+        return None
