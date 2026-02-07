@@ -1,0 +1,34 @@
+[
+  {
+    "name": "frontend-remote",
+    "search_term": "Senior Frontend Developer React",
+    "location": "Remote",
+    "google_search_term": "Senior Frontend React developer remote jobs since yesterday",
+    "sites": ["indeed", "linkedin", "zip_recruiter", "google", "glassdoor"],
+    "results_wanted": 50,
+    "hours_old": 72,
+    "job_type": "fulltime",
+    "is_remote": true,
+    "country_indeed": "USA"
+  },
+  {
+    "name": "fullstack-sf",
+    "search_term": "Full Stack Engineer TypeScript",
+    "location": "San Francisco, CA",
+    "sites": ["indeed", "linkedin", "google"],
+    "results_wanted": 30,
+    "hours_old": 168,
+    "job_type": "fulltime",
+    "country_indeed": "USA"
+  },
+  {
+    "name": "python-backend",
+    "search_term": "Python Backend Developer",
+    "location": "Remote",
+    "sites": ["indeed", "linkedin", "zip_recruiter", "google"],
+    "results_wanted": 50,
+    "hours_old": 72,
+    "is_remote": true,
+    "country_indeed": "USA"
+  }
+]

@@ -1,0 +1,18 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Job results (can be large)
+jobs/*.csv
+jobs/*.xlsx
+
+# Personal config
+config/search.json
+.env
