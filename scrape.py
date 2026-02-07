@@ -419,7 +419,11 @@ def scrape_all(locations: list[str], search_terms: list[str], defaults: dict) ->
         try:
             remote_jobs = scrape_jobs(**remote_kwargs)
             if not remote_jobs.empty:
-                remote_jobs["is_remote"] = True
+                # Only tag jobs that actually mention "remote" in location
+                if "location" in remote_jobs.columns:
+                    remote_jobs["is_remote"] = remote_jobs["location"].fillna("").str.lower().str.contains("remote")
+                else:
+                    remote_jobs["is_remote"] = False
                 all_dfs.append(remote_jobs)
                 print(f"{len(remote_jobs)} results")
             else:
