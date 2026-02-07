@@ -180,21 +180,21 @@ def score_job(row: pd.Series, profile: dict) -> float:
     description = str(row.get("description", "")).lower()
     location = str(row.get("location", "")).lower()
 
-    # ── Company tier scoring (highest tier wins, no double-counting) ──
+    # ── Company tier scoring (nice-to-have, not dominant) ──
     tier_score = 0
     for c in TIER_BIG_TECH:
         if c.lower() in company:
-            tier_score = 30
+            tier_score = 15
             break
     if not tier_score:
         for c in TIER_AU_NOTABLE:
             if c.lower() in company:
-                tier_score = 25
+                tier_score = 12
                 break
     if not tier_score:
         for c in TIER_TOP_TECH:
             if c.lower() in company:
-                tier_score = 20
+                tier_score = 10
                 break
     score += tier_score
 
@@ -234,17 +234,19 @@ def score_job(row: pd.Series, profile: dict) -> float:
             keyword_matches += 1
     score += min(keyword_matches * 2, 20)  # Cap at 20
 
-    # ── Seniority penalty (penalize roles too senior for a recent grad) ──
+    # ── Seniority scoring (you're mid-level, penalize too senior and internships) ──
     seniority = str(row.get("seniority", "")) or detect_seniority(str(row.get("title", "")))
-    seniority_penalties = {
+    seniority_scores = {
         "executive": -40, "director": -35, "staff": -25,
         "senior": -15, "lead": -10,
+        "intern": -20,  # no longer relevant
+        "junior": 0,    # neutral — some grad roles are fine
     }
-    score += seniority_penalties.get(seniority, 0)
+    score += seniority_scores.get(seniority, 0)
 
-    # Bonus for explicit junior/grad roles
-    if seniority == "junior":
-        score += 10
+    # ── Penalize pure ML research / data science (you want AI-adjacent, not pure ML) ──
+    if any(kw in title for kw in ["data scientist", "research scientist", "ml researcher", "machine learning researcher"]):
+        score -= 15
 
     return score
 
@@ -279,7 +281,8 @@ _SENIORITY_PATTERNS = [
     (r"\bmanager\b", "lead"),
     (r"\b(?:lead|team.?lead|tech.?lead)\b", "lead"),
     (r"\bmid[- ]?level\b", "mid"),
-    (r"\b(?:junior|jr\.?|entry[- ]?level|new.?grad|graduate|grad\b|intern(?:ship)?|cadet|trainee|apprentice)\b", "junior"),
+    (r"\b(?:intern(?:ship)?)\b", "intern"),
+    (r"\b(?:junior|jr\.?|entry[- ]?level|new.?grad|graduate|grad\b|cadet|trainee|apprentice)\b", "junior"),
 ]
 
 
@@ -472,7 +475,7 @@ def main():
     parser.add_argument("--big-tech", action="store_true", help="Show only big tech / notable companies")
     parser.add_argument("--job-type", type=str, choices=["fulltime", "parttime", "internship", "contract"])
     parser.add_argument("--seniority", type=str, nargs="+",
-                        choices=["junior", "mid", "senior", "lead", "staff", "director", "executive"],
+                        choices=["intern", "junior", "mid", "senior", "lead", "staff", "director", "executive"],
                         help="Filter to specific seniority levels (e.g. --seniority junior mid)")
     parser.add_argument("--no-senior", action="store_true",
                         help="Exclude senior+ roles (senior, lead, staff, director, executive)")
@@ -533,12 +536,12 @@ def main():
 
     # Seniority filtering
     if args.no_senior:
-        senior_levels = {"senior", "lead", "staff", "director", "executive"}
+        exclude_levels = {"senior", "lead", "staff", "director", "executive", "intern"}
         before = len(jobs)
-        jobs = jobs[~jobs["seniority"].isin(senior_levels)]
+        jobs = jobs[~jobs["seniority"].isin(exclude_levels)]
         filtered = before - len(jobs)
         if filtered:
-            print(f"  Filtered out {filtered} senior+ roles")
+            print(f"  Filtered out {filtered} senior+ and intern roles")
 
     if args.seniority:
         before = len(jobs)
