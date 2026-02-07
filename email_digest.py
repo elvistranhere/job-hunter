@@ -144,7 +144,7 @@ def render_email_html(df: pd.DataFrame, min_score: float = 20.0) -> str:
     if len(filtered) < 5:
         filtered = df[df["score"] >= 0]
 
-    top_jobs = filtered.nlargest(30, "score")
+    top_jobs = filtered.sort_values("score", ascending=False)
     notable = df[df["tier"].fillna("") != ""].nlargest(15, "score") if "tier" in df.columns else pd.DataFrame()
     if "is_remote" in df.columns:
         remote_mask = df["is_remote"].map(lambda x: x is True or str(x).lower() == "true")
