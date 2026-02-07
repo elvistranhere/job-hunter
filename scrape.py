@@ -19,7 +19,7 @@ import csv
 import logging
 import re
 import unicodedata
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
@@ -248,7 +248,57 @@ def score_job(row: pd.Series, profile: dict) -> float:
     if any(kw in title for kw in ["data scientist", "research scientist", "ml researcher", "machine learning researcher"]):
         score -= 15
 
+    # ── Recency boost (newer = fewer applicants = better chance) ──
+    date_str = str(row.get("date_posted", ""))
+    recency_boost = _recency_score(date_str)
+    score += recency_boost
+
     return score
+
+
+def _recency_score(date_str: str) -> float:
+    """Score boost based on how recently a job was posted. Max +10, min -5."""
+    if not date_str or date_str == "nan":
+        return 0
+
+    today = datetime.now().date()
+
+    # Try ISO format first (2026-02-06)
+    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%S.%fZ"):
+        try:
+            posted = datetime.strptime(date_str[:19], fmt[:19]).date()
+            days_old = (today - posted).days
+            if days_old <= 1:
+                return 10
+            if days_old <= 3:
+                return 7
+            if days_old <= 7:
+                return 4
+            if days_old <= 14:
+                return 0
+            if days_old <= 30:
+                return -3
+            return -5
+        except ValueError:
+            continue
+
+    # Try relative formats like "2d ago", "8d ago", "26d ago"
+    m = re.match(r"(\d+)d?\s*ago", date_str.strip())
+    if m:
+        days_old = int(m.group(1))
+        if days_old <= 1:
+            return 10
+        if days_old <= 3:
+            return 7
+        if days_old <= 7:
+            return 4
+        if days_old <= 14:
+            return 0
+        if days_old <= 30:
+            return -3
+        return -5
+
+    return 0
 
 
 def classify_company(company) -> str:
