@@ -12,6 +12,7 @@ wheels/
 # Job results (can be large)
 jobs/*.csv
 jobs/*.xlsx
+jobs/email_preview.html
 
 # Personal config
 config/search.json
