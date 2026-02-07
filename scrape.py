@@ -150,24 +150,65 @@ def _extract_titles(text: str) -> list[str]:
 def _extract_keywords(text: str) -> set[str]:
     """Extract relevant keywords from item descriptions."""
     keywords = set()
+    # Removed generic/short terms that cause false positives:
+    # "ai" (matches "said"/"maintain"), "rl" (matches "url"),
+    # "git" (matches "digital"), "agent", "frontend", "backend",
+    # "devops", "full-stack", "fullstack", "mobile", "ios"
     tech_terms = [
         "react", "typescript", "javascript", "next.js", "nextjs", "node.js",
         "python", "django", ".net", "c#", "sql", "postgresql", "redis",
         "docker", "kubernetes", "aws", "gcp", "azure", "vercel",
         "tailwind", "vite", "zustand", "graphql", "rest api",
-        "machine learning", "llm", "ai", "reinforcement learning",
-        "browser-use", "agent", "agentic", "rl", "prompt engineering",
-        "full-stack", "fullstack", "frontend", "backend", "devops",
-        "git", "ci/cd", "github actions", "microservices",
-        "capacitor", "expo", "mobile", "ios",
+        "machine learning", "llm", "reinforcement learning",
+        "browser-use", "agentic", "prompt engineering",
+        "ci/cd", "github actions", "microservices",
+        "capacitor", "expo",
     ]
 
     text_lower = text.lower()
     for term in tech_terms:
-        if term in text_lower:
+        # Use word-boundary matching to avoid substring false positives
+        if re.search(r'\b' + re.escape(term) + r'\b', text_lower):
             keywords.add(term)
 
     return keywords
+
+
+# ─── Skill Tiers (FIX 4: weight by proficiency instead of flat 3pts) ────────
+SKILL_TIERS = {
+    # Core stack (5 pts) — daily drivers, resume headline skills
+    "react": 5, "typescript": 5, "next.js": 5, ".net": 5, "c#": 5,
+    "python": 5, "tailwind css": 5, "tailwind": 5,
+    # Strong (3 pts) — solid experience, used in multiple projects
+    "django": 3, "node.js": 3, "vite": 3, "zustand": 3,
+    "sql server": 3, "postgresql": 3, "docker": 3, "git": 3,
+    "github actions": 3, "vercel": 3, "javascript": 3,
+    # Peripheral (1 pt) — used but not primary
+    "redis": 1, "c++": 1, "java": 1, "c": 1, "expo": 1, "capacitor": 1,
+    "clerk": 1, "stripe": 1, "neondb": 1, "drizzle orm": 1,
+    "shadcn/ui": 1, "llm": 1, "browser-use": 1, "prompt engineering": 1,
+}
+
+# ─── Negative Titles (FIX 6: penalize non-engineering roles) ────────────────
+NEGATIVE_TITLE_PATTERNS = [
+    "business analyst", "project manager", "product manager",
+    "it support", "it administrator", "network administrator",
+    "scrum master", "ux designer", "ui designer",
+    "sales engineer", "pre-sales", "recruiter", "talent acquisition",
+    "data entry", "helpdesk", "service desk", "desktop support",
+    "account manager", "marketing", "procurement",
+]
+
+# ─── Visa/Sponsorship Signals (bonus for international students) ────────────
+SPONSORSHIP_SIGNALS = [
+    "visa sponsorship", "sponsor visa", "sponsorship available",
+    "pr sponsorship", "permanent residency", "work visa",
+    "482 visa", "subclass 482", "subclass 494", "subclass 189",
+    "skilled worker visa", "employer sponsored",
+    "international students welcome", "international students encouraged",
+    "open to international", "no citizenship requirement",
+    "relocation support", "relocation assistance",
+]
 
 
 # ─── Job Scoring ─────────────────────────────────────────────────────────────
@@ -180,21 +221,21 @@ def score_job(row: pd.Series, profile: dict) -> float:
     description = str(row.get("description", "")).lower()
     location = str(row.get("location", "")).lower()
 
-    # ── Company tier scoring (nice-to-have, not dominant) ──
+    # ── Company tier scoring (FIX 5: slightly reduced 12/10/8) ──
     tier_score = 0
     for c in TIER_BIG_TECH:
         if c.lower() in company:
-            tier_score = 15
+            tier_score = 12
             break
     if not tier_score:
         for c in TIER_AU_NOTABLE:
             if c.lower() in company:
-                tier_score = 12
+                tier_score = 10
                 break
     if not tier_score:
         for c in TIER_TOP_TECH:
             if c.lower() in company:
-                tier_score = 10
+                tier_score = 8
                 break
     score += tier_score
 
@@ -204,49 +245,101 @@ def score_job(row: pd.Series, profile: dict) -> float:
     elif "sydney" in location:
         score += 12
     elif "melbourne" in location:
-        score += 10
+        score += 12
     if "remote" in location:
         score += 5
 
-    # ── Title scoring ──
+    # ── Title scoring (BUG FIX 1: take max single match, not sum) ──
     title_boosts = {
-        "full stack": 15, "fullstack": 15, "full-stack": 15,
-        "frontend": 12, "front-end": 12, "front end": 12,
-        "software engineer": 10, "web developer": 8,
-        "ai engineer": 8, "ml engineer": 8, "machine learning": 8,
+        # Graduate roles (FIX 8: highest tier — he's a current student)
+        "graduate developer": 18, "graduate engineer": 18,
+        "graduate software": 18, "grad developer": 18,
+        "new grad": 18,
+        # Core full-stack (strongest match)
+        "full stack": 18, "fullstack": 18, "full-stack": 18,
+        # Frontend
+        "frontend": 15, "front-end": 15, "front end": 15,
+        # SWE variations
+        "software engineer": 14, "software developer": 14,
+        "forward deployed": 14,
+        "ai engineer": 14, "ai developer": 14,
+        # Mid-tier
+        "application developer": 12, "applications developer": 12,
+        "ai platform": 12, "ai infrastructure": 12,
+        # Broad SWE
+        "backend": 10, "back-end": 10, "back end": 10,
+        "web developer": 10, "web engineer": 10,
+        "platform engineer": 10, "infrastructure engineer": 10,
+        "devops engineer": 10, "devops": 10,
+        "site reliability": 10, "sre": 10,
+        "cloud engineer": 10, "systems engineer": 10,
+        "solutions engineer": 10,
+        "ml engineer": 10, "machine learning engineer": 10, "mlops": 10,
+        # Niche SWE
+        "integration engineer": 8, "automation engineer": 8,
+        "release engineer": 8, "build engineer": 8,
+        # QA/Test
+        "test engineer": 6, "qa engineer": 6, "sdet": 6,
     }
+    best_title_boost = 0
     for term, boost in title_boosts.items():
         if term in title:
-            score += boost
+            best_title_boost = max(best_title_boost, boost)
+    score += best_title_boost
 
-    # ── Skill match scoring (from resume) ──
-    skill_matches = 0
+    # ── FIX 6: Negative title penalty (non-engineering roles) ──
+    if any(pat in title for pat in NEGATIVE_TITLE_PATTERNS):
+        score -= 20
+
+    # ── Skill match scoring (FIX 4: tiered weights + BUG FIX 3: track for dedup) ──
+    matched_skill_terms = set()
+    skill_score = 0.0
     for skill in profile.get("skills", []):
         skill_lower = skill.lower()
         if skill_lower in description or skill_lower in title:
-            skill_matches += 1
-    score += min(skill_matches * 3, 30)  # Cap at 30
+            tier_pts = SKILL_TIERS.get(skill_lower, 1)
+            skill_score += tier_pts
+            matched_skill_terms.add(skill_lower)
+    score += min(skill_score, 30)  # Cap at 30
 
-    # ── Keyword match scoring ──
-    keyword_matches = 0
+    # ── Keyword match scoring (BUG FIX 2: word-boundary + BUG FIX 3: dedup) ──
+    keyword_score = 0.0
     for kw in profile.get("keywords", []):
-        if kw in description:
-            keyword_matches += 1
-    score += min(keyword_matches * 2, 20)  # Cap at 20
+        if kw in matched_skill_terms:
+            continue  # Already counted in skill scoring
+        if re.search(r'\b' + re.escape(kw) + r'\b', description):
+            keyword_score += 2
+    score += min(keyword_score, 15)  # Cap at 15 (was 20)
 
-    # ── Seniority scoring (you're mid-level, penalize too senior and internships) ──
+    # ── Seniority scoring (FIX 7: lead -10 → -5) ──
     seniority = str(row.get("seniority", "")) or detect_seniority(str(row.get("title", "")))
     seniority_scores = {
         "executive": -40, "director": -35, "staff": -25,
-        "senior": -15, "lead": -10,
-        "intern": -20,  # no longer relevant
+        "senior": -5, "lead": -5,
+        "intern": -10,
         "junior": 0,    # neutral — some grad roles are fine
     }
     score += seniority_scores.get(seniority, 0)
 
-    # ── Penalize pure ML research / data science (you want AI-adjacent, not pure ML) ──
-    if any(kw in title for kw in ["data scientist", "research scientist", "ml researcher", "machine learning researcher"]):
+    # ── Visa/sponsorship signals (important for international students, +12 cap) ──
+    sponsorship_score = 0
+    for signal in SPONSORSHIP_SIGNALS:
+        if signal in description:
+            sponsorship_score += 4
+    score += min(sponsorship_score, 12)
+
+    # ── AI-adjacent vs pure ML/research penalty ──
+    pure_research_titles = [
+        "data scientist", "research scientist", "ml researcher",
+        "machine learning researcher", "nlp researcher", "cv researcher",
+        "research engineer", "applied scientist",
+    ]
+    if any(kw in title for kw in pure_research_titles):
         score -= 15
+    ai_infra_signals = ["platform", "infrastructure", "infra", "ops", "deploy", "serving", "pipeline", "production"]
+    if any(s in title or s in description[:200] for s in ai_infra_signals):
+        if any(kw in title for kw in pure_research_titles):
+            score += 10  # partial recovery — it's research but with infra focus
 
     # ── Recency boost (newer = fewer applicants = better chance) ──
     date_str = str(row.get("date_posted", ""))

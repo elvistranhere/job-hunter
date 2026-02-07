@@ -258,7 +258,7 @@ def render_email_html(df: pd.DataFrame, min_score: float = 20.0) -> str:
 # ── SMTP sending ─────────────────────────────────────────────────────────────
 
 def send_email(subject: str, html_body: str, to: str | None = None) -> bool:
-    """Send HTML email via Gmail SMTP. Returns True on success."""
+    """Send HTML email via Gmail SMTP. Supports comma-separated recipients. Returns True on success."""
     gmail_user = os.environ.get("GMAIL_USER")
     gmail_password = os.environ.get("GMAIL_APP_PASSWORD")
     to = to or os.environ.get("EMAIL_TO", gmail_user)
@@ -270,17 +270,20 @@ def send_email(subject: str, html_body: str, to: str | None = None) -> bool:
         print("Error: EMAIL_TO must be set")
         return False
 
+    # Support comma-separated recipients
+    recipients = [addr.strip() for addr in to.split(",") if addr.strip()]
+
     msg = MIMEMultipart("alternative")
     msg["From"] = f"Job Hunter <{gmail_user}>"
-    msg["To"] = to
+    msg["To"] = ", ".join(recipients)
     msg["Subject"] = subject
     msg.attach(MIMEText(html_body, "html"))
 
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
             server.login(gmail_user, gmail_password)
-            server.sendmail(gmail_user, [to], msg.as_string())
-        print(f"  Email sent to {to}")
+            server.sendmail(gmail_user, recipients, msg.as_string())
+        print(f"  Email sent to {', '.join(recipients)}")
         return True
     except Exception as e:
         print(f"  Failed to send email: {e}")

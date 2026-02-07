@@ -40,7 +40,6 @@ jobs:
         if: ${{ github.event.inputs.full_run != 'true' }}
         run: |
           uv run python scrape.py \
-            --location Adelaide \
             --hours 24 \
             --results 20 \
             --no-senior
