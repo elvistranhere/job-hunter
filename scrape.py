@@ -16,19 +16,26 @@ Usage:
 
 import argparse
 import csv
-import json
+import logging
 import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
 from jobspy import scrape_jobs
 
+from scrapers_au import scrape_au_sites, scrape_gradconnection
+
+# Suppress noisy JobSpy/tls_client logs
+logging.getLogger("JobSpy").setLevel(logging.WARNING)
+logging.getLogger("tls_client").setLevel(logging.WARNING)
+
 # ── Locations (priority order) ───────────────────────────────────────────────
 LOCATIONS = ["Adelaide, Australia", "Sydney, Australia", "Melbourne, Australia"]
 
 # ── Sites ────────────────────────────────────────────────────────────────────
-SITES = ["indeed", "linkedin", "zip_recruiter", "google", "glassdoor"]
+SITES = ["indeed", "linkedin"]
 
 # ── Company tiers ────────────────────────────────────────────────────────────
 TIER_BIG_TECH = {
@@ -62,13 +69,12 @@ TIER_AU_NOTABLE = {
     "Maptek", "Santos", "CSL", "Cochlear",
 }
 
-ALL_NOTABLE = TIER_BIG_TECH | TIER_TOP_TECH | TIER_AU_NOTABLE
-
 # ── Role search terms (priority order) ──────────────────────────────────────
 ROLE_SEARCHES = [
     "Full Stack Developer",
     "Full Stack Engineer",
     "Frontend Developer React",
+    "Backend Developer",
     "Software Engineer",
     "Web Developer",
     "AI Engineer",
@@ -174,19 +180,23 @@ def score_job(row: pd.Series, profile: dict) -> float:
     description = str(row.get("description", "")).lower()
     location = str(row.get("location", "")).lower()
 
-    # ── Company tier scoring ──
+    # ── Company tier scoring (highest tier wins, no double-counting) ──
+    tier_score = 0
     for c in TIER_BIG_TECH:
         if c.lower() in company:
-            score += 30
+            tier_score = 30
             break
-    for c in TIER_AU_NOTABLE:
-        if c.lower() in company:
-            score += 25
-            break
-    for c in TIER_TOP_TECH:
-        if c.lower() in company:
-            score += 20
-            break
+    if not tier_score:
+        for c in TIER_AU_NOTABLE:
+            if c.lower() in company:
+                tier_score = 25
+                break
+    if not tier_score:
+        for c in TIER_TOP_TECH:
+            if c.lower() in company:
+                tier_score = 20
+                break
+    score += tier_score
 
     # ── Location scoring ──
     if "adelaide" in location:
@@ -224,21 +234,97 @@ def score_job(row: pd.Series, profile: dict) -> float:
             keyword_matches += 1
     score += min(keyword_matches * 2, 20)  # Cap at 20
 
+    # ── Seniority penalty (penalize roles too senior for a recent grad) ──
+    seniority = str(row.get("seniority", "")) or detect_seniority(str(row.get("title", "")))
+    seniority_penalties = {
+        "executive": -40, "director": -35, "staff": -25,
+        "senior": -15, "lead": -10,
+    }
+    score += seniority_penalties.get(seniority, 0)
+
+    # Bonus for explicit junior/grad roles
+    if seniority == "junior":
+        score += 10
+
     return score
 
 
-def classify_company(company: str) -> str:
+def classify_company(company) -> str:
     """Classify company into tier."""
+    if not isinstance(company, str) or not company:
+        return ""
+    company_lower = company.lower()
     for c in TIER_BIG_TECH:
-        if c.lower() in company.lower():
+        if c.lower() in company_lower:
             return "Big Tech"
     for c in TIER_AU_NOTABLE:
-        if c.lower() in company.lower():
+        if c.lower() in company_lower:
             return "AU Notable"
     for c in TIER_TOP_TECH:
-        if c.lower() in company.lower():
+        if c.lower() in company_lower:
             return "Top Tech"
     return ""
+
+
+# ─── Seniority Detection ─────────────────────────────────────────────────────
+
+# Patterns ordered from most to least senior.  First match wins.
+_SENIORITY_PATTERNS = [
+    (r"\b(?:chief|cto|cio|vp|vice.?president)\b", "executive"),
+    (r"\bdirector\b", "director"),
+    (r"\b(?:staff|principal|distinguished)\b", "staff"),
+    (r"\bmid[- ]?(?:to[- ])?senior\b", "senior"),  # "Mid to Senior" before generic "senior"
+    (r"\b(?:senior|sr\.?|snr)\b", "senior"),
+    (r"\barchitect\b", "senior"),
+    (r"\bmanager\b", "lead"),
+    (r"\b(?:lead|team.?lead|tech.?lead)\b", "lead"),
+    (r"\bmid[- ]?level\b", "mid"),
+    (r"\b(?:junior|jr\.?|entry[- ]?level|new.?grad|graduate|grad\b|intern(?:ship)?|cadet|trainee|apprentice)\b", "junior"),
+]
+
+
+def detect_seniority(title: str) -> str:
+    """Classify job title into seniority level. Returns '' if unclear (treat as mid)."""
+    t = title.lower()
+    for pattern, level in _SENIORITY_PATTERNS:
+        if re.search(pattern, t):
+            return level
+    return ""
+
+
+# ─── Smart Dedup ─────────────────────────────────────────────────────────────
+
+def _normalize(text: str) -> str:
+    """Lowercase, strip accents, collapse whitespace/punctuation for fuzzy matching."""
+    text = text.split("|")[0]  # strip suffixes like "| International Students"
+    text = unicodedata.normalize("NFKD", text.lower())
+    text = text.encode("ascii", "ignore").decode()  # strip accents
+    text = re.sub(r"[^a-z0-9 ]", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def deduplicate(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove duplicates: first by exact URL, then by normalized (title, company) pair."""
+    before = len(df)
+
+    # Pass 1: exact URL dedup
+    if "job_url" in df.columns:
+        df = df.drop_duplicates(subset=["job_url"], keep="first")
+
+    # Pass 2: fuzzy title+company dedup (catches same job across sites)
+    if "title" in df.columns and "company" in df.columns:
+        norm_key = (
+            df["title"].fillna("").apply(_normalize)
+            + "|"
+            + df["company"].fillna("").apply(_normalize)
+        )
+        df = df.loc[~norm_key.duplicated(keep="first")]
+
+    dupes = before - len(df)
+    if dupes:
+        print(f"\n  Removed {dupes} duplicates (URL + title/company matching)")
+
+    return df.reset_index(drop=True)
 
 
 # ─── Scraping ────────────────────────────────────────────────────────────────
@@ -255,6 +341,7 @@ def run_search(search_term: str, location: str, defaults: dict) -> pd.DataFrame 
         "hours_old": defaults.get("hours_old", 72),
         "description_format": "markdown",
         "country_indeed": "Australia",
+        "linkedin_fetch_description": True,
         "verbose": 0,
     }
 
@@ -278,32 +365,70 @@ def run_search(search_term: str, location: str, defaults: dict) -> pd.DataFrame 
 
 
 def scrape_all(locations: list[str], search_terms: list[str], defaults: dict) -> pd.DataFrame:
-    """Run all location x search_term combinations."""
+    """Run all location x search_term combinations across all sources, plus remote."""
     all_dfs = []
     total = len(locations) * len(search_terms)
     i = 0
 
     for loc in locations:
-        print(f"\n  [{loc.split(',')[0]}]")
+        city = loc.split(",")[0]
+        print(f"\n  [{city}]")
+
+        # GradConnection once per city (ignores search terms)
+        print(f"  GradConnection...", end="", flush=True)
+        gc_jobs = scrape_gradconnection("", city)
+        print(f" {len(gc_jobs)}")
+        if gc_jobs:
+            all_dfs.append(pd.DataFrame(gc_jobs))
+
         for term in search_terms:
             i += 1
-            print(f"  ({i}/{total})", end=" ")
+
+            # JobSpy (Indeed, LinkedIn)
+            print(f"  ({i}/{total}) JobSpy:", end=" ")
             result = run_search(term, loc, defaults)
             if result is not None:
                 all_dfs.append(result)
+
+            # AU sites (Seek, Prosple)
+            print(f"           AU:", end=" ")
+            au_jobs = scrape_au_sites(term, city)
+            if au_jobs:
+                au_df = pd.DataFrame(au_jobs)
+                all_dfs.append(au_df)
+
+    # Remote-only pass: JobSpy with is_remote (Seek doesn't support remote URL)
+    print(f"\n  [Remote]")
+    for j, term in enumerate(search_terms, 1):
+        print(f"  ({j}/{len(search_terms)}) Remote JobSpy: {term}...", end=" ", flush=True)
+        remote_kwargs = {
+            "site_name": defaults.get("sites", SITES),
+            "search_term": term,
+            "location": "Australia",
+            "results_wanted": defaults.get("results_wanted", 30),
+            "hours_old": defaults.get("hours_old", 72),
+            "description_format": "markdown",
+            "country_indeed": "Australia",
+            "linkedin_fetch_description": True,
+            "is_remote": True,
+            "verbose": 0,
+        }
+        try:
+            remote_jobs = scrape_jobs(**remote_kwargs)
+            if not remote_jobs.empty:
+                remote_jobs["is_remote"] = True
+                all_dfs.append(remote_jobs)
+                print(f"{len(remote_jobs)} results")
+            else:
+                print("0 results")
+        except Exception as e:
+            print(f"Error: {e}")
 
     if not all_dfs:
         return pd.DataFrame()
 
     combined = pd.concat(all_dfs, ignore_index=True)
-
-    # Deduplicate
-    if "job_url" in combined.columns:
-        before = len(combined)
-        combined = combined.drop_duplicates(subset=["job_url"], keep="first")
-        dupes = before - len(combined)
-        if dupes:
-            print(f"\n  Removed {dupes} duplicates")
+    combined = deduplicate(combined)
 
     return combined
 
@@ -324,7 +449,7 @@ def save_results(df: pd.DataFrame, name: str, output_dir: Path) -> tuple[Path, P
 
 
 def print_results(df: pd.DataFrame, label: str, limit: int = 0):
-    cols = ["score", "tier", "title", "company", "location", "date_posted", "site"]
+    cols = ["score", "seniority", "tier", "title", "company", "location", "date_posted", "site"]
     available = [c for c in cols if c in df.columns]
     display = df if limit == 0 else df.head(limit)
 
@@ -346,6 +471,11 @@ def main():
     parser.add_argument("--hours", type=int, default=72, help="Max hours since posted")
     parser.add_argument("--big-tech", action="store_true", help="Show only big tech / notable companies")
     parser.add_argument("--job-type", type=str, choices=["fulltime", "parttime", "internship", "contract"])
+    parser.add_argument("--seniority", type=str, nargs="+",
+                        choices=["junior", "mid", "senior", "lead", "staff", "director", "executive"],
+                        help="Filter to specific seniority levels (e.g. --seniority junior mid)")
+    parser.add_argument("--no-senior", action="store_true",
+                        help="Exclude senior+ roles (senior, lead, staff, director, executive)")
     parser.add_argument("--top", type=int, default=30, help="Number of top results to display")
     parser.add_argument("--output", type=str, default="jobs")
 
@@ -358,7 +488,10 @@ def main():
     # 2. Determine search parameters
     if args.location:
         # Map short names to full
-        loc_map = {"adelaide": "Adelaide, Australia", "sydney": "Sydney, Australia", "melbourne": "Melbourne, Australia"}
+        loc_map = {
+            "adelaide": "Adelaide, Australia", "sydney": "Sydney, Australia",
+            "melbourne": "Melbourne, Australia",
+        }
         locations = [loc_map.get(args.location.lower(), args.location)]
     else:
         locations = LOCATIONS
@@ -380,10 +513,40 @@ def main():
         print("\nNo jobs found.")
         return
 
+    # 3b. Filter to AU target cities only
+    if "location" in jobs.columns:
+        target_cities = {"adelaide", "sydney", "melbourne", "remote"}
+        loc_lower = jobs["location"].fillna("").str.lower()
+        au_mask = loc_lower.apply(lambda l: any(c in l for c in target_cities))
+        before = len(jobs)
+        jobs = jobs[au_mask].reset_index(drop=True)
+        filtered = before - len(jobs)
+        if filtered:
+            print(f"  Filtered out {filtered} non-target-city jobs (keeping Adelaide/Sydney/Melbourne/Remote)")
+
     # 4. Score and rank
     print(f"\n[3/3] Scoring {len(jobs)} jobs against your resume...")
-    jobs["score"] = jobs.apply(lambda row: score_job(row, profile), axis=1)
     jobs["tier"] = jobs["company"].apply(classify_company) if "company" in jobs.columns else ""
+    jobs["seniority"] = jobs["title"].apply(detect_seniority) if "title" in jobs.columns else ""
+    jobs["seniority"] = jobs["seniority"].replace("", "mid")
+    jobs["score"] = jobs.apply(lambda row: score_job(row, profile), axis=1)
+
+    # Seniority filtering
+    if args.no_senior:
+        senior_levels = {"senior", "lead", "staff", "director", "executive"}
+        before = len(jobs)
+        jobs = jobs[~jobs["seniority"].isin(senior_levels)]
+        filtered = before - len(jobs)
+        if filtered:
+            print(f"  Filtered out {filtered} senior+ roles")
+
+    if args.seniority:
+        before = len(jobs)
+        jobs = jobs[jobs["seniority"].isin(set(args.seniority))]
+        filtered = before - len(jobs)
+        if filtered:
+            print(f"  Filtered to {len(jobs)} jobs matching seniority: {', '.join(args.seniority)}")
+
     jobs = jobs.sort_values("score", ascending=False).reset_index(drop=True)
 
     # 5. Save
@@ -416,6 +579,10 @@ def main():
     if "site" in jobs.columns:
         site_counts = jobs["site"].value_counts()
         print(f"  By site: {dict(site_counts)}")
+
+    if "seniority" in jobs.columns:
+        sen_counts = jobs["seniority"].value_counts()
+        print(f"  Seniority: {dict(sen_counts)}")
 
     if "tier" in jobs.columns:
         tier_counts = jobs[jobs["tier"] != ""]["tier"].value_counts()
