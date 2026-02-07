@@ -518,7 +518,7 @@ def main():
 
     # 3b. Filter to AU target cities only
     if "location" in jobs.columns:
-        target_cities = {"adelaide", "sydney", "melbourne", "remote"}
+        target_cities = {"adelaide", "sydney", "melbourne", "remote", "australia"}
         loc_lower = jobs["location"].fillna("").str.lower()
         au_mask = loc_lower.apply(lambda l: any(c in l for c in target_cities))
         before = len(jobs)
