@@ -10,9 +10,12 @@ Indeed and LinkedIn are handled by JobSpy in scrape.py — not duplicated here.
 Returns list[dict] with keys: title, company, location, job_url, site, description, date_posted.
 """
 
+import asyncio
 import json
+import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from urllib.parse import quote_plus, urljoin
 
 import requests
@@ -77,100 +80,153 @@ def _extract_seek_redux_data(html: str) -> dict | None:
         return None
 
 
+def _parse_seek_jobs(html: str) -> list[dict]:
+    """Parse SEEK_REDUX_DATA from page HTML into job dicts."""
+    data = _extract_seek_redux_data(html)
+    if not data:
+        return []
+
+    jobs_data = data.get("results", {}).get("results", {}).get("jobs", []) or []
+    results = []
+
+    for job in jobs_data:
+        job_id = str(job.get("id", ""))
+        title = job.get("title", "")
+        if not job_id or not title:
+            continue
+
+        company = (
+            job.get("companyName", "")
+            or job.get("advertiser", {}).get("description", "")
+        )
+        locations = job.get("locations", [])
+        location = locations[0].get("label", "") if locations else ""
+
+        listing_date = job.get("listingDate", "")
+        date_display = job.get("listingDateDisplay", "")
+        date_posted = date_display or (listing_date[:10] if listing_date else "")
+
+        teaser = job.get("teaser", "")
+
+        salary = ""
+        salary_data = job.get("salary") or job.get("salaryLabel") or ""
+        if isinstance(salary_data, dict):
+            salary = salary_data.get("label", "")
+        elif isinstance(salary_data, str):
+            salary = salary_data
+
+        work_type = job.get("workType", "")
+
+        work_arrangements = job.get("workArrangements", {})
+        if isinstance(work_arrangements, dict):
+            work_arrangement = work_arrangements.get("label", "")
+        elif isinstance(work_arrangements, list) and work_arrangements:
+            work_arrangement = work_arrangements[0].get("label", "") if isinstance(work_arrangements[0], dict) else str(work_arrangements[0])
+        else:
+            work_arrangement = ""
+
+        results.append({
+            "title": title,
+            "company": company,
+            "location": location,
+            "job_url": f"https://www.seek.com.au/job/{job_id}",
+            "date_posted": date_posted,
+            "description": teaser,
+            "salary": salary,
+            "work_type": work_type,
+            "work_arrangement": work_arrangement,
+            "site": "seek",
+            "_id": job_id,
+        })
+
+    return results
+
+
+# Global Seek browser session — reused across calls to avoid re-solving Cloudflare per call
+_seek_browser = None
+
+
+async def _get_seek_page_async(url: str) -> str:
+    """Fetch a Seek page using nodriver (undetected Chrome) to bypass Cloudflare."""
+    try:
+        import nodriver as uc
+    except ImportError:
+        print("      Seek: nodriver not installed, skipping")
+        return ""
+
+    global _seek_browser
+
+    if _seek_browser is None:
+        try:
+            # Use CHROME_BINARY env var if set (e.g. Docker with Chromium)
+            browser_path = os.environ.get("CHROME_BINARY")
+            kwargs = {"headless": False}
+            if browser_path:
+                kwargs["browser_executable_path"] = browser_path
+            _seek_browser = await uc.start(**kwargs)
+        except Exception as e:
+            print(f"      Seek: Chrome not available ({e}), skipping")
+            return ""
+
+    page = await _seek_browser.get(url)
+
+    # Poll until Cloudflare challenge passes (usually 3-5s)
+    for _ in range(15):
+        await asyncio.sleep(1)
+        content = await page.get_content()
+        if "SEEK_REDUX_DATA" in content:
+            return content
+
+    return ""
+
+
+def _get_seek_page(url: str) -> str:
+    """Sync wrapper for async nodriver Seek page fetch."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Already in async context (worker) — use nest_asyncio or thread
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                return pool.submit(lambda: asyncio.run(_get_seek_page_async(url))).result(timeout=30)
+        return loop.run_until_complete(_get_seek_page_async(url))
+    except RuntimeError:
+        return asyncio.run(_get_seek_page_async(url))
+
+
 def scrape_seek(search_term: str, city: str, max_pages: int = 5) -> list[dict]:
-    """Scrape job listings from seek.com.au by parsing embedded SEEK_REDUX_DATA JSON."""
+    """Scrape job listings from seek.com.au using nodriver to bypass Cloudflare."""
     city_key = city.lower().split(",")[0].strip()
     location_slug = SEEK_LOCATIONS.get(city_key, "")
 
     results = []
     seen_ids = set()
 
-    for page in range(1, max_pages + 1):
-        url = f"https://www.seek.com.au/{quote_plus(search_term)}-jobs/{location_slug}?page={page}"
+    for page_num in range(1, max_pages + 1):
+        url = f"https://www.seek.com.au/{quote_plus(search_term)}-jobs/{location_slug}?page={page_num}"
 
         try:
-            resp = requests.get(url, headers=HEADERS, timeout=15)
-            if resp.status_code != 200:
-                print(f"      Seek page {page}: HTTP {resp.status_code}")
-                break
+            html = _get_seek_page(url)
         except Exception as e:
             print(f"      Seek error: {e}")
             break
 
-        data = _extract_seek_redux_data(resp.text)
-        if not data:
+        if not html:
+            if page_num == 1:
+                print(f"      Seek page {page_num}: Cloudflare blocked")
             break
 
-        jobs_data = (
-            data.get("results", {})
-            .get("results", {})
-            .get("jobs", [])
-        )
-        if not jobs_data:
+        page_jobs = _parse_seek_jobs(html)
+        if not page_jobs:
             break
 
-        for job in jobs_data:
-            job_id = str(job.get("id", ""))
-            if not job_id or job_id in seen_ids:
-                continue
-            seen_ids.add(job_id)
+        for job in page_jobs:
+            job_id = job.pop("_id", "")
+            if job_id not in seen_ids:
+                seen_ids.add(job_id)
+                results.append(job)
 
-            title = job.get("title", "")
-            if not title:
-                continue
-
-            company = (
-                job.get("companyName", "")
-                or job.get("advertiser", {}).get("description", "")
-            )
-            locations = job.get("locations", [])
-            location = locations[0].get("label", "") if locations else ""
-
-            listing_date = job.get("listingDate", "")
-            date_display = job.get("listingDateDisplay", "")
-            if date_display:
-                date_posted = date_display
-            elif listing_date:
-                date_posted = listing_date[:10]
-            else:
-                date_posted = ""
-
-            teaser = job.get("teaser", "")
-
-            # Extract salary info
-            salary = ""
-            salary_data = job.get("salary") or job.get("salaryLabel") or ""
-            if isinstance(salary_data, dict):
-                salary = salary_data.get("label", "")
-            elif isinstance(salary_data, str):
-                salary = salary_data
-
-            # Extract work type (full-time, part-time, contract, casual)
-            work_type = job.get("workType", "")
-
-            # Extract work arrangement (office, hybrid, remote)
-            work_arrangements = job.get("workArrangements", {})
-            if isinstance(work_arrangements, dict):
-                work_arrangement = work_arrangements.get("label", "")
-            elif isinstance(work_arrangements, list) and work_arrangements:
-                work_arrangement = work_arrangements[0].get("label", "") if isinstance(work_arrangements[0], dict) else str(work_arrangements[0])
-            else:
-                work_arrangement = ""
-
-            results.append({
-                "title": title,
-                "company": company,
-                "location": location,
-                "job_url": f"https://www.seek.com.au/job/{job_id}",
-                "date_posted": date_posted,
-                "description": teaser,
-                "salary": salary,
-                "work_type": work_type,
-                "work_arrangement": work_arrangement,
-                "site": "seek",
-            })
-
-        time.sleep(2.5)
+        time.sleep(1.5)
 
     return results
 
@@ -193,10 +249,14 @@ query OpportunitiesSearch($parameters: OpportunitiesSearchInput!) {
       applicationsCloseDateDescription
       applyByUrl
       parentEmployer { advertiserName }
+      workingRights { label }
     }
   }
 }
 """
+
+# Prosple opportunity types that are not real job listings
+_PROSPLE_JUNK_TYPES = {"Virtual Experience", "Competition", "Event"}
 
 
 def scrape_prosple(search_term: str, city: str, max_results: int = 100) -> list[dict]:
@@ -260,14 +320,24 @@ def scrape_prosple(search_term: str, city: str, max_results: int = 100) -> list[
                 dedup_key = (title.lower(), company.lower())
                 if not title or dedup_key in seen:
                     continue
+
+                # Filter non-AU working rights
+                rights = [r.get("label", "") for r in (opp.get("workingRights") or [])]
+                if rights and not any(r in ("Australia", "New Zealand") for r in rights):
+                    continue
+
+                # Filter junk opportunity types (virtual experiences, competitions, events)
+                opp_types = [t.get("label", "") for t in (opp.get("opportunityTypes") or [])]
+                type_label = opp_types[0] if opp_types else ""
+                if type_label in _PROSPLE_JUNK_TYPES:
+                    continue
+
                 seen.add(dedup_key)
 
                 location = opp.get("locationDescription") or city_key.title() or "Australia"
                 close_desc = opp.get("applicationsCloseDateDescription") or ""
                 apply_url = opp.get("applyByUrl") or ""
                 overview = (opp.get("overview") or {}).get("summary", "") or ""
-                opp_types = [t.get("label", "") for t in (opp.get("opportunityTypes") or [])]
-                type_label = opp_types[0] if opp_types else ""
 
                 if apply_url:
                     job_url = apply_url
@@ -276,9 +346,15 @@ def scrape_prosple(search_term: str, city: str, max_results: int = 100) -> list[
                 else:
                     job_url = "https://au.prosple.com/graduate-jobs"
 
-                description = overview[:200]
+                # Build richer description from available fields
+                desc_parts = []
                 if type_label:
-                    description = f"[{type_label}] {description}"
+                    desc_parts.append(f"[{type_label}]")
+                if overview:
+                    desc_parts.append(overview)
+                if rights:
+                    desc_parts.append(f"Work rights: {', '.join(rights)}.")
+                description = " ".join(desc_parts)
 
                 results.append({
                     "title": title,
@@ -324,7 +400,7 @@ _GC_JUNK_PATTERNS = re.compile(
 )
 
 
-def scrape_gradconnection(search_term: str, city: str, max_pages: int = 3) -> list[dict]:
+def scrape_gradconnection(search_term: str, city: str, max_pages: int = 10) -> list[dict]:
     """Scrape graduate job listings from au.gradconnection.com.
 
     Note: GradConnection ignores the keywords param — returns all jobs in the
@@ -440,10 +516,12 @@ def _parse_gradconnection_card(container) -> dict | None:
 # ─── Unified runner ──────────────────────────────────────────────────────────
 
 def scrape_au_sites(search_term: str, city: str) -> list[dict]:
-    """Scrape Seek + Prosple for a search term + city.
+    """Scrape Seek + LinkedIn for a search term + city.
 
+    Prosple returns national results regardless of city, so it should be
+    called once per search term via scrape_prosple() directly — not here.
     GradConnection ignores search terms so should be called once per city
-    via scrape_gradconnection() directly. Indeed/LinkedIn handled by JobSpy.
+    via scrape_gradconnection() directly. Indeed handled by JobSpy.
     """
     all_results = []
 
@@ -451,11 +529,6 @@ def scrape_au_sites(search_term: str, city: str) -> list[dict]:
     seek = scrape_seek(search_term, city)
     print(f" {len(seek)}", end="", flush=True)
     all_results.extend(seek)
-
-    print(f"  Prosple...", end="", flush=True)
-    prosple = scrape_prosple(search_term, city)
-    print(f" {len(prosple)}", end="", flush=True)
-    all_results.extend(prosple)
 
     print(f"  LinkedIn...", end="", flush=True)
     linkedin = scrape_linkedin(search_term, city)
@@ -479,7 +552,28 @@ LINKEDIN_LOCATIONS = {
 }
 
 
-def scrape_linkedin(search_term: str, city: str, max_results: int = 50) -> list[dict]:
+def _fetch_linkedin_description(job_url: str) -> str:
+    """Fetch full job description from a LinkedIn job detail page."""
+    for attempt in range(2):
+        try:
+            resp = requests.get(job_url, headers=HEADERS, timeout=10)
+            if resp.status_code == 429:
+                time.sleep(2)
+                continue
+            if resp.status_code != 200:
+                return ""
+            soup = BeautifulSoup(resp.text, "html.parser")
+            desc_div = soup.find("div", class_="show-more-less-html__markup")
+            if desc_div:
+                return desc_div.get_text(separator=" ", strip=True)[:3000]
+            return ""
+        except Exception:
+            if attempt == 0:
+                time.sleep(1)
+    return ""
+
+
+def scrape_linkedin(search_term: str, city: str, max_results: int = 100) -> list[dict]:
     """Scrape LinkedIn jobs via the public guest API (no login required)."""
     city_key = city.lower().split(",")[0].strip()
     location = LINKEDIN_LOCATIONS.get(city_key, "Australia")
@@ -515,6 +609,18 @@ def scrape_linkedin(search_term: str, city: str, max_results: int = 50) -> list[
         if len(cards) < 25:
             break
         time.sleep(1.5)
+
+    # Fetch descriptions concurrently (3 threads — more gets rate-limited by LinkedIn)
+    jobs_with_urls = [(i, job) for i, job in enumerate(results) if job.get("job_url")]
+    if jobs_with_urls:
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            futures = {
+                pool.submit(_fetch_linkedin_description, job["job_url"]): i
+                for i, job in jobs_with_urls
+            }
+            for future in as_completed(futures):
+                idx = futures[future]
+                results[idx]["description"] = future.result()
 
     return results
 

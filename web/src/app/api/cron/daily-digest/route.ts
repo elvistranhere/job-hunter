@@ -77,10 +77,10 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Update run status
+      // Mark run as "running" — worker will update to "completed" via callback
       await db.subscriptionRun.update({
         where: { id: run.id },
-        data: { status: "completed" },
+        data: { status: "running" },
       });
 
       // Advance nextRunAt by 1 day

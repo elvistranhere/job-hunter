@@ -17,6 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+import math
+
 import pandas as pd
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -26,6 +28,16 @@ from pydantic import BaseModel
 _PARENT_DIR = str(Path(__file__).resolve().parent.parent)
 if _PARENT_DIR not in sys.path:
     sys.path.insert(0, _PARENT_DIR)
+
+# ── Load root .env (GMAIL creds, CALLBACK_URL, WORKER_SECRET) ───────────────
+_ENV_FILE = Path(_PARENT_DIR) / ".env"
+if _ENV_FILE.exists():
+    for _line in _ENV_FILE.read_text().splitlines():
+        _line = _line.strip()
+        if not _line or _line.startswith("#") or "=" not in _line:
+            continue
+        _key, _, _val = _line.partition("=")
+        os.environ.setdefault(_key.strip(), _val.strip().strip("'\""))
 
 from email_digest import render_email_html, send_email  # noqa: E402
 from scrape import (  # noqa: E402
@@ -70,10 +82,16 @@ class Skill(BaseModel):
     tier: str = "peripheral"  # "core" | "strong" | "peripheral"
 
 
+class Experience(BaseModel):
+    years: int = 0
+    level: str = "junior"  # "intern" | "junior" | "mid" | "senior"
+
+
 class Profile(BaseModel):
     skills: list[Skill] = []
     titles: list[str] = []
     keywords: list[str] = []
+    experience: Optional[Experience] = None
 
 
 class Preferences(BaseModel):
@@ -331,8 +349,42 @@ def run_scrape_job(request: ScrapeRequest):
         else:
             logger.error(f"[{submission_id}] Failed to send email")
 
-        # 6. POST results back to Next.js app
-        _post_callback(submission_id, "completed", len(jobs))
+        # 6. POST results back to Next.js app (include job data for DB storage)
+        def _safe_str(val, max_len: int = 0) -> str | None:
+            """Convert pandas value to JSON-safe string (handles NaN/NaT/None)."""
+            if val is None or (isinstance(val, float) and math.isnan(val)):
+                return None
+            s = str(val).strip()
+            if not s or s.lower() in ("nan", "nat", "none", ""):
+                return None
+            return s[:max_len] if max_len else s
+
+        def _safe_float(val) -> float:
+            """Convert to JSON-safe float (NaN → 0.0)."""
+            try:
+                f = float(val)
+                return 0.0 if math.isnan(f) or math.isinf(f) else f
+            except (TypeError, ValueError):
+                return 0.0
+
+        job_results = []
+        for _, row in jobs.iterrows():
+            job_results.append({
+                "title": _safe_str(row.get("title")) or "",
+                "company": _safe_str(row.get("company")) or "",
+                "location": _safe_str(row.get("location")) or "",
+                "jobUrl": _safe_str(row.get("job_url")) or "",
+                "site": _safe_str(row.get("site")) or "",
+                "score": _safe_float(row.get("score")),
+                "tier": _safe_str(row.get("tier")),
+                "seniority": _safe_str(row.get("seniority")),
+                "datePosted": _safe_str(row.get("date_posted")),
+                "description": _safe_str(row.get("description"), max_len=5000),
+                "salary": _safe_str(row.get("min_amount")),
+                "workType": _safe_str(row.get("job_type")),
+                "isRemote": bool(row.get("is_remote", False)),
+            })
+        _post_callback(submission_id, "completed", len(jobs), job_results=job_results)
 
         logger.info(
             f"[{submission_id}] Done: {len(jobs)} jobs scored, "
@@ -367,11 +419,14 @@ def _post_callback(
     status: str,
     job_count: int,
     error: Optional[str] = None,
+    job_results: Optional[list[dict]] = None,
 ):
-    """POST results back to the Next.js app callback URL."""
+    """POST results back to the Next.js app callback URL with retry."""
     if not CALLBACK_URL:
         logger.info(f"[{submission_id}] No CALLBACK_URL configured, skipping callback")
         return
+
+    import time as _time
 
     import requests as req
 
@@ -382,22 +437,41 @@ def _post_callback(
     }
     if error:
         payload["error"] = error
+    if job_results:
+        payload["jobResults"] = job_results
 
-    try:
-        resp = req.post(
-            CALLBACK_URL,
-            json=payload,
-            headers={
-                "Authorization": f"Bearer {WORKER_SECRET}",
-                "Content-Type": "application/json",
-            },
-            timeout=10,
-        )
-        logger.info(
-            f"[{submission_id}] Callback POST {CALLBACK_URL} -> {resp.status_code}"
-        )
-    except Exception as e:
-        logger.error(f"[{submission_id}] Callback failed: {e}")
+    # Retry up to 3 times with exponential backoff (2s, 4s, 8s)
+    for attempt in range(3):
+        try:
+            resp = req.post(
+                CALLBACK_URL,
+                json=payload,
+                headers={
+                    "Authorization": f"Bearer {WORKER_SECRET}",
+                    "Content-Type": "application/json",
+                },
+                timeout=60,
+            )
+            if resp.status_code == 200:
+                logger.info(
+                    f"[{submission_id}] Callback OK — "
+                    f"{len(job_results or [])} job results sent"
+                )
+                return
+            else:
+                logger.error(
+                    f"[{submission_id}] Callback HTTP {resp.status_code} "
+                    f"(attempt {attempt + 1}/3) — {resp.text[:200]}"
+                )
+        except Exception as e:
+            logger.error(
+                f"[{submission_id}] Callback error (attempt {attempt + 1}/3): {e}"
+            )
+
+        if attempt < 2:
+            _time.sleep(2 ** (attempt + 1))
+
+    logger.error(f"[{submission_id}] Callback FAILED after 3 attempts")
 
 
 # ── Endpoints ────────────────────────────────────────────────────────────────

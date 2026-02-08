@@ -25,7 +25,7 @@ from pathlib import Path
 import pandas as pd
 from jobspy import scrape_jobs
 
-from scrapers_au import scrape_au_sites, scrape_gradconnection
+from scrapers_au import scrape_au_sites, scrape_gradconnection, scrape_prosple
 
 # Suppress noisy JobSpy/tls_client logs
 logging.getLogger("JobSpy").setLevel(logging.WARNING)
@@ -622,16 +622,25 @@ def run_search(search_term: str, location: str, defaults: dict) -> pd.DataFrame 
 
 
 def scrape_all(locations: list[str], search_terms: list[str], defaults: dict) -> pd.DataFrame:
-    """Run all location x search_term combinations across all sources, plus remote."""
+    """Orchestrate all scrapers with smart dedup-aware scheduling.
+
+    Strategy — each source is called at the right granularity to avoid duplicates:
+      • Indeed (JobSpy):     per city × per term  (city-specific results)
+      • Seek:                per city × per term  (city-specific results)
+      • LinkedIn:            per city × per term  (city-specific, fetches descriptions)
+      • GradConnection:      once per city         (category-based, ignores search terms)
+      • Prosple:             once per search term   (national results, ignores city)
+    """
     all_dfs = []
     total = len(locations) * len(search_terms)
     i = 0
 
+    # ── Per-city sources ──────────────────────────────────────────────────
     for loc in locations:
         city = loc.split(",")[0]
         print(f"\n  [{city}]")
 
-        # GradConnection once per city (ignores search terms)
+        # GradConnection: once per city (ignores search terms)
         print(f"  GradConnection...", end="", flush=True)
         gc_jobs = scrape_gradconnection("", city)
         print(f" {len(gc_jobs)}")
@@ -641,20 +650,28 @@ def scrape_all(locations: list[str], search_terms: list[str], defaults: dict) ->
         for term in search_terms:
             i += 1
 
-            # JobSpy (Indeed, LinkedIn)
+            # JobSpy (Indeed): per city × per term
             print(f"  ({i}/{total}) JobSpy:", end=" ")
             result = run_search(term, loc, defaults)
             if result is not None:
                 all_dfs.append(result)
 
-            # AU sites (Seek, Prosple)
+            # Seek + LinkedIn: per city × per term
             print(f"           AU:", end=" ")
             au_jobs = scrape_au_sites(term, city)
             if au_jobs:
-                au_df = pd.DataFrame(au_jobs)
-                all_dfs.append(au_df)
+                all_dfs.append(pd.DataFrame(au_jobs))
 
-    # Remote-only pass: JobSpy with is_remote (Seek doesn't support remote URL)
+    # ── National sources (called once per search term, not per city) ──────
+    print(f"\n  [Prosple — national]")
+    for j, term in enumerate(search_terms, 1):
+        print(f"  ({j}/{len(search_terms)}) Prosple: {term}...", end=" ", flush=True)
+        prosple_jobs = scrape_prosple(term, "australia")
+        print(f"{len(prosple_jobs)}")
+        if prosple_jobs:
+            all_dfs.append(pd.DataFrame(prosple_jobs))
+
+    # ── Remote-only pass: JobSpy with is_remote ───────────────────────────
     print(f"\n  [Remote]")
     for j, term in enumerate(search_terms, 1):
         print(f"  ({j}/{len(search_terms)}) Remote JobSpy: {term}...", end=" ", flush=True)
@@ -666,14 +683,13 @@ def scrape_all(locations: list[str], search_terms: list[str], defaults: dict) ->
             "hours_old": defaults.get("hours_old", 72),
             "description_format": "markdown",
             "country_indeed": "Australia",
-    
+
             "is_remote": True,
             "verbose": 0,
         }
         try:
             remote_jobs = scrape_jobs(**remote_kwargs)
             if not remote_jobs.empty:
-                # Only tag jobs that actually mention "remote" in location
                 if "location" in remote_jobs.columns:
                     remote_jobs["is_remote"] = remote_jobs["location"].fillna("").str.lower().str.contains("remote")
                 else:

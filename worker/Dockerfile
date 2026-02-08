@@ -6,10 +6,16 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-# Install system dependencies needed by some Python packages
+# Install system dependencies: gcc for native packages, Chromium + Xvfb for Seek scraper (nodriver)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc libffi-dev && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends \
+        gcc libffi-dev \
+        chromium chromium-driver \
+        xvfb \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Chrome path for nodriver (Debian uses "chromium" not "google-chrome")
+ENV CHROME_BINARY=/usr/bin/chromium
 
 # Install Python dependencies
 COPY worker/requirements.txt /app/worker/requirements.txt
@@ -29,6 +35,10 @@ COPY resumes/ /app/resumes/
 # The worker's sys.path insert points to parent of worker/, which is /app
 # so imports of scrape, scrapers_au, email_digest resolve to /app/*.py
 
+# Copy startup script
+COPY worker/start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 EXPOSE 8000
 
-CMD ["uvicorn", "worker.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/start.sh"]

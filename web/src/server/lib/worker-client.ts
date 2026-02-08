@@ -27,10 +27,9 @@ export async function triggerWorker(payload: WorkerPayload): Promise<void> {
   const workerUrl = env.WORKER_URL;
 
   if (!workerUrl) {
-    console.warn(
-      "WORKER_URL not set — skipping worker trigger. Set WORKER_URL to your Railway Python worker endpoint.",
+    throw new Error(
+      "WORKER_URL not configured. Set WORKER_URL to your Railway Python worker endpoint.",
     );
-    return;
   }
 
   const response = await fetch(`${workerUrl}/api/scrape`, {

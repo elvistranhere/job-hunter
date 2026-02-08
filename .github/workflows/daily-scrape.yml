@@ -20,7 +20,7 @@ on:
 jobs:
   scrape-and-email:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
@@ -36,20 +36,25 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Install Xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
       - name: Run scraper (focused daily)
         if: ${{ github.event.inputs.full_run != 'true' }}
         run: |
-          uv run python scrape.py \
-            --hours 24 \
-            --results 20 \
-            --no-senior
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+            uv run python scrape.py \
+              --hours 24 \
+              --results 20 \
+              --no-senior
         env:
           PYTHONUNBUFFERED: "1"
 
       - name: Run scraper (full matrix)
         if: ${{ github.event.inputs.full_run == 'true' }}
         run: |
-          uv run python scrape.py --hours 48
+          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
+            uv run python scrape.py --hours 48
         env:
           PYTHONUNBUFFERED: "1"
 
