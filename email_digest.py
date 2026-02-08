@@ -34,20 +34,32 @@ def _load_dotenv(path: str = ".env"):
         os.environ.setdefault(key.strip(), value.strip().strip("'\""))
 
 
-# ── Design tokens (matches web app) ─────────────────────────────────────────
+# ── Design tokens ───────────────────────────────────────────────────────────
+# Light mode is the default (inline styles — works in all email clients).
+# Dark mode activates via @media (prefers-color-scheme: dark) for Apple Mail,
+# Gmail mobile, and other supporting clients.
 
-NAVY_950 = "#060a14"
-NAVY_900 = "#0a0f1c"
-NAVY_800 = "#111827"
-NAVY_700 = "#1a2332"
-NAVY_600 = "#243044"
-NAVY_500 = "#334155"
-NAVY_400 = "#475569"
-NAVY_300 = "#64748b"
-NAVY_200 = "#94a3b8"
-NAVY_100 = "#cbd5e1"
-NAVY_50 = "#e8ecf2"
+# Light mode palette
+L_BG = "#ffffff"
+L_CARD = "#f8fafc"
+L_CARD_ALT = "#f1f5f9"
+L_BORDER = "#e2e8f0"
+L_TEXT = "#0f172a"
+L_TEXT_SECONDARY = "#334155"
+L_TEXT_MUTED = "#64748b"
+L_TEXT_FAINT = "#94a3b8"
 
+# Dark mode palette (navy theme)
+D_BG = "#060a14"
+D_CARD = "#0a0f1c"
+D_CARD_ALT = "#111827"
+D_BORDER = "#1a2332"
+D_TEXT = "#e8ecf2"
+D_TEXT_SECONDARY = "#cbd5e1"
+D_TEXT_MUTED = "#64748b"
+D_TEXT_FAINT = "#475569"
+
+# Accent colors (same in both modes)
 AMBER_600 = "#d97706"
 AMBER_500 = "#f59e0b"
 AMBER_400 = "#fbbf24"
@@ -58,25 +70,47 @@ EMERALD_400 = "#34d399"
 ROSE_500 = "#f43f5e"
 
 TIER_COLORS = {
+    "Big Tech": "#b45309",
+    "Top Tech": "#0e7490",
+    "AU Notable": "#7c3aed",
+}
+
+TIER_BG = {
+    "Big Tech": "#fffbeb",
+    "Top Tech": "#ecfeff",
+    "AU Notable": "#f5f3ff",
+}
+
+TIER_COLORS_DARK = {
     "Big Tech": AMBER_400,
     "Top Tech": "#22d3ee",
     "AU Notable": "#a78bfa",
 }
 
-TIER_BG = {
+TIER_BG_DARK = {
     "Big Tech": "#1a1608",
     "Top Tech": "#081a1e",
     "AU Notable": "#12081e",
 }
 
 SENIORITY_COLORS = {
-    "junior": (EMERALD_400, "#071a12"),
+    "junior": ("#059669", "#ecfdf5"),
+    "mid": ("#2563eb", "#eff6ff"),
+    "senior": ("#d97706", "#fffbeb"),
+    "lead": ("#e11d48", "#fff1f2"),
+    "staff": ("#7c3aed", "#f5f3ff"),
+    "director": ("#e11d48", "#fff1f2"),
+    "executive": ("#64748b", "#f1f5f9"),
+}
+
+SENIORITY_COLORS_DARK = {
+    "junior": ("#34d399", "#071a12"),
     "mid": ("#60a5fa", "#081220"),
     "senior": (AMBER_400, "#1a1608"),
     "lead": (ROSE_500, "#1a0810"),
     "staff": ("#a78bfa", "#12081e"),
     "director": ("#fb7185", "#1a0810"),
-    "executive": (NAVY_200, NAVY_700),
+    "executive": ("#94a3b8", "#1a2332"),
 }
 
 
@@ -87,28 +121,30 @@ def _esc(text) -> str:
 
 
 def _score_color(score: float) -> str:
+    """Score badge text color (light mode)."""
     if score >= 60:
-        return EMERALD_400
+        return "#059669"
     if score >= 40:
-        return AMBER_400
+        return "#b45309"
     if score >= 20:
-        return "#60a5fa"
-    return NAVY_300
+        return "#2563eb"
+    return L_TEXT_MUTED
 
 
 def _score_bg(score: float) -> str:
+    """Score badge background (light mode)."""
     if score >= 60:
-        return "#071a12"
+        return "#ecfdf5"
     if score >= 40:
-        return "#1a1608"
+        return "#fffbeb"
     if score >= 20:
-        return "#081220"
-    return NAVY_700
+        return "#eff6ff"
+    return L_CARD_ALT
 
 
 def _render_job_card(row: pd.Series) -> str:
     seniority = str(row.get("seniority", "mid"))
-    sen_fg, sen_bg = SENIORITY_COLORS.get(seniority, (NAVY_300, NAVY_700))
+    sen_fg, sen_bg = SENIORITY_COLORS.get(seniority, (L_TEXT_MUTED, L_CARD_ALT))
     score = float(row.get("score", 0))
     sc = _score_color(score)
     sc_bg = _score_bg(score)
@@ -116,9 +152,9 @@ def _render_job_card(row: pd.Series) -> str:
 
     tier_html = ""
     if tier:
-        t_fg = TIER_COLORS.get(tier, AMBER_400)
-        t_bg = TIER_BG.get(tier, NAVY_700)
-        tier_html = f'<span style="background:{t_bg};color:{t_fg};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-left:6px;">{_esc(tier)}</span>'
+        t_fg = TIER_COLORS.get(tier, AMBER_600)
+        t_bg = TIER_BG.get(tier, L_CARD_ALT)
+        tier_html = f'<span class="tier-badge" style="background:{t_bg};color:{t_fg};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;margin-left:6px;">{_esc(tier)}</span>'
 
     title = _esc(row.get("title", "Unknown"))
     raw_direct = row.get("job_url_direct")
@@ -130,41 +166,41 @@ def _render_job_card(row: pd.Series) -> str:
     location = _esc(row.get("location", ""))
     site = _esc(row.get("site", ""))
     date = _esc(row.get("date_posted", ""))
-    date_html = f'<span style="color:{NAVY_300};font-size:11px;">{date}</span>' if date and date != "nan" else ""
+    date_html = f'<span style="color:{L_TEXT_MUTED};font-size:11px;">{date}</span>' if date and date != "nan" else ""
 
     if direct_url and scraped_url != "#":
-        via_html = f'<a href="{scraped_url}" style="color:{NAVY_300};font-size:11px;text-decoration:underline;" target="_blank">via {site}</a>'
+        via_html = f'<a href="{scraped_url}" style="color:{L_TEXT_MUTED};font-size:11px;text-decoration:underline;" target="_blank">via {site}</a>'
     else:
-        via_html = f'<span style="color:{NAVY_400};font-size:11px;">{site}</span>'
+        via_html = f'<span style="color:{L_TEXT_FAINT};font-size:11px;">{site}</span>'
 
     salary = _esc(row.get("salary", ""))
-    salary_html = f'<div style="color:{EMERALD_400};font-size:12px;margin-top:4px;font-weight:500;">{salary}</div>' if salary and salary != "nan" else ""
+    salary_html = f'<div style="color:{EMERALD_500};font-size:12px;margin-top:4px;font-weight:500;">{salary}</div>' if salary and salary != "nan" else ""
 
     work_type = _esc(row.get("work_type", ""))
     work_arr = _esc(row.get("work_arrangement", ""))
     meta_parts = [m for m in [work_type, work_arr] if m and m != "nan"]
-    meta_html = f'<span style="color:{NAVY_400};font-size:11px;">{" · ".join(meta_parts)}</span>' if meta_parts else ""
+    meta_html = f'<span style="color:{L_TEXT_FAINT};font-size:11px;">{" · ".join(meta_parts)}</span>' if meta_parts else ""
 
-    return f"""<tr><td style="padding:16px 20px;border-bottom:1px solid {NAVY_700};">
+    return f"""<tr><td class="job-card" style="padding:16px 20px;border-bottom:1px solid {L_BORDER};">
   <table role="presentation" style="width:100%;"><tr>
     <td style="width:48px;vertical-align:top;padding-right:12px;">
-      <div style="background:{sc_bg};color:{sc};font-size:16px;font-weight:700;width:44px;height:44px;line-height:44px;text-align:center;border-radius:8px;">{score:.0f}</div>
+      <div class="score-badge" style="background:{sc_bg};color:{sc};font-size:16px;font-weight:700;width:44px;height:44px;line-height:44px;text-align:center;border-radius:8px;">{score:.0f}</div>
     </td>
     <td style="vertical-align:top;">
-      <a href="{primary_url}" style="color:{NAVY_50};font-weight:600;font-size:15px;text-decoration:none;" target="_blank">{title}</a>
+      <a href="{primary_url}" class="job-title" style="color:{L_TEXT};font-weight:600;font-size:15px;text-decoration:none;" target="_blank">{title}</a>
       <div style="margin-top:4px;">
-        <span style="color:#ffffff;font-weight:500;font-size:13px;">{company}</span>{tier_html}
+        <span class="company-name" style="color:{L_TEXT_SECONDARY};font-weight:500;font-size:13px;">{company}</span>{tier_html}
       </div>
-      <div style="margin-top:4px;color:{NAVY_300};font-size:12px;">
+      <div class="job-meta" style="margin-top:4px;color:{L_TEXT_MUTED};font-size:12px;">
         {location}
-        {f'<span style="margin:0 6px;color:{NAVY_500};">·</span>' if location else ''}
+        {f'<span style="margin:0 6px;color:{L_TEXT_FAINT};">·</span>' if location else ''}
         {via_html}
-        {f'<span style="margin:0 6px;color:{NAVY_500};">·</span>' + date_html if date_html else ''}
-        {f'<span style="margin:0 6px;color:{NAVY_500};">·</span>' + meta_html if meta_html else ''}
+        {f'<span style="margin:0 6px;color:{L_TEXT_FAINT};">·</span>' + date_html if date_html else ''}
+        {f'<span style="margin:0 6px;color:{L_TEXT_FAINT};">·</span>' + meta_html if meta_html else ''}
       </div>
       {salary_html}
       <div style="margin-top:6px;">
-        <span style="background:{sen_bg};color:{sen_fg};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;">{seniority}</span>
+        <span class="sen-badge" style="background:{sen_bg};color:{sen_fg};padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500;">{seniority}</span>
       </div>
     </td>
   </tr></table>
@@ -182,13 +218,13 @@ def _render_seniority_bar(df: pd.DataFrame) -> str:
             continue
         count = counts[level]
         pct = count / total * 100
-        fg, bg = SENIORITY_COLORS.get(level, (NAVY_300, NAVY_700))
+        fg, _bg = SENIORITY_COLORS.get(level, (L_TEXT_MUTED, L_CARD_ALT))
         bar_width = max(int(pct * 2), 8)
         rows.append(f"""<tr>
   <td style="padding:6px 8px;font-size:12px;color:{fg};font-weight:500;width:70px;text-transform:capitalize;">{level}</td>
   <td style="padding:6px 8px;">
     <div style="background:{fg};border-radius:3px;height:8px;width:{bar_width}px;display:inline-block;opacity:0.7;vertical-align:middle;"></div>
-    <span style="font-size:11px;color:{NAVY_300};margin-left:8px;">{count} ({pct:.0f}%)</span>
+    <span class="bar-count" style="font-size:11px;color:{L_TEXT_MUTED};margin-left:8px;">{count} ({pct:.0f}%)</span>
   </td>
 </tr>""")
     return "\n".join(rows)
@@ -221,14 +257,42 @@ def render_email_html(df: pd.DataFrame, min_score: float = 20.0) -> str:
 
     parts = []
 
-    # Email wrapper — dark background
+    # Dark mode CSS — overrides light mode inline styles for Apple Mail, Gmail mobile, etc.
+    dark_css = f"""
+    @media (prefers-color-scheme: dark) {{
+      .email-body {{ background-color: {D_BG} !important; }}
+      .email-wrapper {{ background-color: {D_CARD} !important; }}
+      .header-title {{ color: #ffffff !important; }}
+      .header-date {{ color: {D_TEXT_MUTED} !important; }}
+      .stat-card {{ background-color: {D_CARD_ALT} !important; }}
+      .stat-value {{ color: #ffffff !important; }}
+      .stat-label {{ color: {D_TEXT_MUTED} !important; }}
+      .sites-summary {{ color: {D_TEXT_FAINT} !important; }}
+      .section-border {{ border-color: {D_BORDER} !important; }}
+      .job-card {{ border-color: {D_BORDER} !important; }}
+      .job-title {{ color: {D_TEXT} !important; }}
+      .company-name {{ color: #ffffff !important; }}
+      .job-meta {{ color: {D_TEXT_MUTED} !important; }}
+      .bar-count {{ color: {D_TEXT_MUTED} !important; }}
+      .footer-text {{ color: {D_TEXT_FAINT} !important; }}
+      .footer-sub {{ color: {D_TEXT_FAINT} !important; }}
+    }}
+    """
+
+    # Email wrapper — light mode default
     parts.append(f"""<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<style type="text/css">
+  :root {{ color-scheme: light dark; supported-color-schemes: light dark; }}
+  {dark_css}
+</style>
 </head>
-<body style="margin:0;padding:0;background:{NAVY_950};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','DM Sans',Roboto,sans-serif;color:{NAVY_100};">
-<table role="presentation" style="width:100%;max-width:640px;margin:0 auto;background:{NAVY_900};">""")
+<body class="email-body" style="margin:0;padding:0;background:{L_BG};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','DM Sans',Roboto,sans-serif;color:{L_TEXT};">
+<table role="presentation" class="email-wrapper" style="width:100%;max-width:640px;margin:0 auto;background:{L_BG};">""")
 
     # Header — amber accent bar
     parts.append(f"""<tr><td style="padding:0;">
@@ -236,8 +300,8 @@ def render_email_html(df: pd.DataFrame, min_score: float = 20.0) -> str:
   <table role="presentation" style="width:100%;padding:28px 24px 20px;">
     <tr>
       <td>
-        <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:400;font-style:italic;letter-spacing:-0.5px;">Job Hunter</h1>
-        <p style="margin:4px 0 0;color:{NAVY_300};font-size:13px;letter-spacing:0.5px;">DAILY DIGEST · {today.upper()}</p>
+        <h1 class="header-title" style="margin:0;color:{L_TEXT};font-size:24px;font-weight:400;font-style:italic;letter-spacing:-0.5px;">Job Hunter</h1>
+        <p class="header-date" style="margin:4px 0 0;color:{L_TEXT_MUTED};font-size:13px;letter-spacing:0.5px;">DAILY DIGEST · {today.upper()}</p>
       </td>
     </tr>
   </table>
@@ -248,39 +312,39 @@ def render_email_html(df: pd.DataFrame, min_score: float = 20.0) -> str:
     parts.append(f"""<tr><td style="padding:0 20px 16px;">
   <table role="presentation" style="width:100%;border-collapse:separate;border-spacing:8px 0;">
     <tr>
-      <td style="background:{NAVY_800};border-radius:8px;padding:12px;text-align:center;width:25%;">
-        <div style="font-size:24px;font-weight:700;color:#ffffff;">{total}</div>
-        <div style="font-size:10px;color:{NAVY_300};text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Jobs Found</div>
+      <td class="stat-card" style="background:{L_CARD};border-radius:8px;padding:12px;text-align:center;width:25%;">
+        <div class="stat-value" style="font-size:24px;font-weight:700;color:{L_TEXT};">{total}</div>
+        <div class="stat-label" style="font-size:10px;color:{L_TEXT_MUTED};text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Jobs Found</div>
       </td>
-      <td style="background:{NAVY_800};border-radius:8px;padding:12px;text-align:center;width:25%;">
-        <div style="font-size:24px;font-weight:700;color:{EMERALD_400};">{top_score:.0f}</div>
-        <div style="font-size:10px;color:{NAVY_300};text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Top Score</div>
+      <td class="stat-card" style="background:{L_CARD};border-radius:8px;padding:12px;text-align:center;width:25%;">
+        <div style="font-size:24px;font-weight:700;color:{EMERALD_500};">{top_score:.0f}</div>
+        <div class="stat-label" style="font-size:10px;color:{L_TEXT_MUTED};text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Top Score</div>
       </td>
-      <td style="background:{NAVY_800};border-radius:8px;padding:12px;text-align:center;width:25%;">
-        <div style="font-size:24px;font-weight:700;color:{AMBER_400};">{notable_count}</div>
-        <div style="font-size:10px;color:{NAVY_300};text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Notable</div>
+      <td class="stat-card" style="background:{L_CARD};border-radius:8px;padding:12px;text-align:center;width:25%;">
+        <div style="font-size:24px;font-weight:700;color:{AMBER_600};">{notable_count}</div>
+        <div class="stat-label" style="font-size:10px;color:{L_TEXT_MUTED};text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Notable</div>
       </td>
-      <td style="background:{NAVY_800};border-radius:8px;padding:12px;text-align:center;width:25%;">
-        <div style="font-size:24px;font-weight:700;color:#60a5fa;">{len(top_jobs)}</div>
-        <div style="font-size:10px;color:{NAVY_300};text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">In Digest</div>
+      <td class="stat-card" style="background:{L_CARD};border-radius:8px;padding:12px;text-align:center;width:25%;">
+        <div style="font-size:24px;font-weight:700;color:#2563eb;">{len(top_jobs)}</div>
+        <div class="stat-label" style="font-size:10px;color:{L_TEXT_MUTED};text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">In Digest</div>
       </td>
     </tr>
   </table>
-  <div style="text-align:center;margin-top:8px;font-size:11px;color:{NAVY_400};">{sites_summary}</div>
+  <div class="sites-summary" style="text-align:center;margin-top:8px;font-size:11px;color:{L_TEXT_FAINT};">{sites_summary}</div>
 </td></tr>""")
 
     # Section: Top Jobs
     parts.append(f"""<tr><td style="padding:8px 20px 0;">
   <table role="presentation" style="width:100%;"><tr>
     <td style="padding-bottom:8px;">
-      <span style="color:{AMBER_400};font-size:13px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;">Top Jobs</span>
-      <span style="color:{NAVY_400};font-size:12px;margin-left:8px;">score &ge; {min_score:.0f}</span>
+      <span style="color:{AMBER_600};font-size:13px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;">Top Jobs</span>
+      <span style="color:{L_TEXT_FAINT};font-size:12px;margin-left:8px;">score &ge; {min_score:.0f}</span>
     </td>
   </tr></table>
-  <div style="height:1px;background:linear-gradient(90deg,{AMBER_500},{NAVY_800});"></div>
+  <div class="section-border" style="height:1px;background:linear-gradient(90deg,{AMBER_500},{L_BORDER});"></div>
 </td></tr>""")
 
-    parts.append(f'<tr><td style="background:{NAVY_900};"><table role="presentation" style="width:100%;">')
+    parts.append('<tr><td><table role="presentation" style="width:100%;">')
     for _, row in top_jobs.iterrows():
         parts.append(_render_job_card(row))
     parts.append("</table></td></tr>")
@@ -290,12 +354,12 @@ def render_email_html(df: pd.DataFrame, min_score: float = 20.0) -> str:
         parts.append(f"""<tr><td style="padding:20px 20px 0;">
   <table role="presentation" style="width:100%;"><tr>
     <td style="padding-bottom:8px;">
-      <span style="color:#a78bfa;font-size:13px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;">Notable Companies</span>
+      <span style="color:#7c3aed;font-size:13px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;">Notable Companies</span>
     </td>
   </tr></table>
-  <div style="height:1px;background:linear-gradient(90deg,#a78bfa,{NAVY_800});"></div>
+  <div class="section-border" style="height:1px;background:linear-gradient(90deg,#7c3aed,{L_BORDER});"></div>
 </td></tr>""")
-        parts.append(f'<tr><td style="background:{NAVY_900};"><table role="presentation" style="width:100%;">')
+        parts.append('<tr><td><table role="presentation" style="width:100%;">')
         for _, row in notable.iterrows():
             parts.append(_render_job_card(row))
         parts.append("</table></td></tr>")
@@ -305,12 +369,12 @@ def render_email_html(df: pd.DataFrame, min_score: float = 20.0) -> str:
         parts.append(f"""<tr><td style="padding:20px 20px 0;">
   <table role="presentation" style="width:100%;"><tr>
     <td style="padding-bottom:8px;">
-      <span style="color:#22d3ee;font-size:13px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;">Remote Jobs</span>
+      <span style="color:#0e7490;font-size:13px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;">Remote Jobs</span>
     </td>
   </tr></table>
-  <div style="height:1px;background:linear-gradient(90deg,#22d3ee,{NAVY_800});"></div>
+  <div class="section-border" style="height:1px;background:linear-gradient(90deg,#0e7490,{L_BORDER});"></div>
 </td></tr>""")
-        parts.append(f'<tr><td style="background:{NAVY_900};"><table role="presentation" style="width:100%;">')
+        parts.append('<tr><td><table role="presentation" style="width:100%;">')
         for _, row in remote.iterrows():
             parts.append(_render_job_card(row))
         parts.append("</table></td></tr>")
@@ -321,10 +385,10 @@ def render_email_html(df: pd.DataFrame, min_score: float = 20.0) -> str:
         parts.append(f"""<tr><td style="padding:20px 20px 0;">
   <table role="presentation" style="width:100%;"><tr>
     <td style="padding-bottom:8px;">
-      <span style="color:{EMERALD_400};font-size:13px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;">Seniority Breakdown</span>
+      <span style="color:{EMERALD_500};font-size:13px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;">Seniority Breakdown</span>
     </td>
   </tr></table>
-  <div style="height:1px;background:linear-gradient(90deg,{EMERALD_500},{NAVY_800});"></div>
+  <div class="section-border" style="height:1px;background:linear-gradient(90deg,{EMERALD_500},{L_BORDER});"></div>
 </td></tr>
 <tr><td style="padding:8px 20px 16px;">
   <table role="presentation" style="width:100%;">{seniority_rows}</table>
@@ -332,12 +396,12 @@ def render_email_html(df: pd.DataFrame, min_score: float = 20.0) -> str:
 
     # Footer
     ts = datetime.now().strftime("%Y-%m-%d %H:%M")
-    parts.append(f"""<tr><td style="padding:24px 20px;border-top:1px solid {NAVY_700};">
+    parts.append(f"""<tr><td style="padding:24px 20px;border-top:1px solid {L_BORDER};">
   <table role="presentation" style="width:100%;"><tr>
     <td style="text-align:center;">
-      <p style="margin:0;font-size:12px;color:{NAVY_400};font-style:italic;">Job Hunter</p>
-      <p style="margin:6px 0 0;font-size:11px;color:{NAVY_500};">Score threshold: {min_score:.0f} · {len(top_jobs)} of {total} jobs · {ts}</p>
-      <p style="margin:8px 0 0;font-size:11px;color:{NAVY_500};">Open source · github.com/elvistran/job-hunter</p>
+      <p class="footer-text" style="margin:0;font-size:12px;color:{L_TEXT_MUTED};font-style:italic;">Job Hunter</p>
+      <p class="footer-sub" style="margin:6px 0 0;font-size:11px;color:{L_TEXT_FAINT};">Score threshold: {min_score:.0f} · {len(top_jobs)} of {total} jobs · {ts}</p>
+      <p class="footer-sub" style="margin:8px 0 0;font-size:11px;color:{L_TEXT_FAINT};">Open source · github.com/elvistran/job-hunter</p>
     </td>
   </tr></table>
 </td></tr>""")
