@@ -45,3 +45,11 @@ uv run python scrape.py
 uv run python scrape.py --big-tech --hours 24
 uv run python scrape.py --location Adelaide --search "React Developer"
 ```
+
+## Email Digest
+
+Daily automated emails sent at ~7am Adelaide time with top jobs.
+
+**Setup**: See [QUICKSTART_EMAIL.md](./QUICKSTART_EMAIL.md) for 2-minute setup guide.
+
+**Details**: See [SETUP_EMAIL_RECIPIENTS.md](./SETUP_EMAIL_RECIPIENTS.md) for full documentation.
