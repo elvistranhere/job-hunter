@@ -96,14 +96,22 @@ export default function Home() {
           </div>
           <span className="font-serif text-xl text-white">Job Hunter</span>
         </div>
-        <a
-          href="https://github.com/elvistran/job-hunter"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-sans text-sm text-navy-400 hover:text-navy-200 transition-colors"
-        >
-          GitHub
-        </a>
+        <div className="flex items-center gap-4">
+          <a
+            href="/dashboard"
+            className="font-sans text-sm text-navy-400 hover:text-navy-200 transition-colors"
+          >
+            Dashboard
+          </a>
+          <a
+            href="https://github.com/elvistran/job-hunter"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-sans text-sm text-navy-400 hover:text-navy-200 transition-colors"
+          >
+            GitHub
+          </a>
+        </div>
       </nav>
 
       {/* Hero */}

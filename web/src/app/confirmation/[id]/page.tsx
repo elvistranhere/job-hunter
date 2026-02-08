@@ -62,10 +62,10 @@ export default function ConfirmationPage() {
           </Link>
 
           <Link
-            href="/"
+            href="/dashboard"
             className="font-sans text-sm text-navy-500 hover:text-navy-300 transition-colors"
           >
-            Back to home
+            View dashboard
           </Link>
         </div>
       </div>
