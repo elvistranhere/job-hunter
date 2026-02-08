@@ -45,3 +45,16 @@ uv run python scrape.py
 uv run python scrape.py --big-tech --hours 24
 uv run python scrape.py --location Adelaide --search "React Developer"
 ```
+
+## Email Digest Setup
+
+The project includes automated daily email digests via GitHub Actions. To configure email recipients:
+
+1. See **[SETUP_EMAILS.md](./SETUP_EMAILS.md)** for complete setup instructions
+2. Set GitHub secrets: `GMAIL_USER`, `GMAIL_APP_PASSWORD`, `EMAIL_TO`
+3. `EMAIL_TO` supports multiple comma-separated recipients
+
+**Current recipients**:
+- khoinguyenmai17102005@gmail.com
+- trunglamasia@gmail.com
+- tridung.190705@gmail.com
