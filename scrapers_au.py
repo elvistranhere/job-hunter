@@ -30,12 +30,22 @@ SEEK_LOCATIONS = {
     "adelaide": "in-All-Adelaide-SA",
     "sydney": "in-All-Sydney-NSW",
     "melbourne": "in-All-Melbourne-VIC",
+    "brisbane": "in-All-Brisbane-QLD",
+    "perth": "in-All-Perth-WA",
+    "canberra": "in-All-Canberra-ACT",
+    "gold coast": "in-All-Gold-Coast-QLD",
+    "hobart": "in-All-Hobart-TAS",
 }
 
 GRADCONNECTION_LOCATIONS = {
     "adelaide": "south-australia",
     "sydney": "new-south-wales",
     "melbourne": "victoria",
+    "brisbane": "queensland",
+    "perth": "western-australia",
+    "canberra": "australian-capital-territory",
+    "gold coast": "queensland",
+    "hobart": "tasmania",
 }
 
 
@@ -461,6 +471,11 @@ LINKEDIN_LOCATIONS = {
     "adelaide": "Adelaide%2C+South+Australia%2C+Australia",
     "sydney": "Sydney%2C+New+South+Wales%2C+Australia",
     "melbourne": "Melbourne%2C+Victoria%2C+Australia",
+    "brisbane": "Brisbane%2C+Queensland%2C+Australia",
+    "perth": "Perth%2C+Western+Australia%2C+Australia",
+    "canberra": "Canberra%2C+Australian+Capital+Territory%2C+Australia",
+    "gold coast": "Gold+Coast%2C+Queensland%2C+Australia",
+    "hobart": "Hobart%2C+Tasmania%2C+Australia",
 }
 
 

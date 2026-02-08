@@ -15,6 +15,8 @@ interface ParsedProfile {
   titles: string[];
   keywords: string[];
   experience: { years: number; level: string } | null;
+  suggestedLocations: string[];
+  suggestedRoles: string[];
   aiResponse: string;
 }
 
@@ -56,7 +58,9 @@ Return this exact JSON structure:
   ],
   "titles": ["Software Engineer", "Frontend Developer"],
   "keywords": ["typescript", "react", "next.js", "docker", "aws"],
-  "experience": {"years": 3, "level": "junior"}
+  "experience": {"years": 3, "level": "junior"},
+  "suggestedLocations": ["Sydney", "Melbourne", "Remote"],
+  "suggestedRoles": ["Full Stack Developer", "Software Engineer", "Frontend Developer"]
 }
 
 Rules for "tier":
@@ -69,6 +73,19 @@ Rules for "experience.level":
 - "junior": 0-2 years, or recent graduate
 - "mid": 2-5 years
 - "senior": 5+ years
+
+Rules for "suggestedLocations":
+- Infer from work history addresses, university locations, or stated preferences
+- Use short city names: "Adelaide", "Sydney", "Melbourne", "Brisbane", "Perth", "Canberra", "Gold Coast", "Hobart"
+- If remote work is mentioned in any role, include "Remote"
+- If unclear, default to ["Sydney", "Melbourne", "Remote"]
+- Always return 2-4 locations
+
+Rules for "suggestedRoles":
+- Derive from job titles held and primary skill stack
+- Use search-friendly terms like "Software Engineer", "Full Stack Developer", "Frontend Developer", "Backend Developer", "DevOps Engineer", "Data Engineer", "ML Engineer"
+- Include the most specific match first, then broader terms
+- Always return 2-4 roles
 
 Extract ALL technical skills, programming languages, frameworks, tools, and platforms. Be thorough.`,
       },
@@ -84,6 +101,8 @@ Extract ALL technical skills, programming languages, frameworks, tools, and plat
     titles: string[];
     keywords: string[];
     experience: { years: number; level: string } | null;
+    suggestedLocations: string[];
+    suggestedRoles: string[];
   };
 
   try {
@@ -100,6 +119,8 @@ Extract ALL technical skills, programming languages, frameworks, tools, and plat
     titles: parsed_data.titles ?? [],
     keywords: parsed_data.keywords ?? [],
     experience: parsed_data.experience ?? null,
+    suggestedLocations: parsed_data.suggestedLocations ?? [],
+    suggestedRoles: parsed_data.suggestedRoles ?? [],
     aiResponse: aiText,
   };
 }

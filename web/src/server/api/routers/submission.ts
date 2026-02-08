@@ -11,6 +11,8 @@ const scoringWeightsSchema = z.object({
   skills: z.number().min(0).max(2).default(1),
   sponsorship: z.number().min(0).max(2).default(1),
   recency: z.number().min(0).max(2).default(1),
+  culture: z.number().min(0).max(2).default(1),
+  quality: z.number().min(0).max(2).default(1),
 });
 
 const skillSchema = z.object({
@@ -68,6 +70,12 @@ export const submissionRouter = createTRPCRouter({
             experience: profile.experience
               ? JSON.parse(JSON.stringify(profile.experience))
               : undefined,
+            suggestedLocations: profile.suggestedLocations.length > 0
+              ? JSON.parse(JSON.stringify(profile.suggestedLocations))
+              : undefined,
+            suggestedRoles: profile.suggestedRoles.length > 0
+              ? JSON.parse(JSON.stringify(profile.suggestedRoles))
+              : undefined,
             aiResponse: profile.aiResponse,
           },
         });
@@ -110,6 +118,8 @@ export const submissionRouter = createTRPCRouter({
               titles: true,
               keywords: true,
               experience: true,
+              suggestedLocations: true,
+              suggestedRoles: true,
             },
           },
         },
@@ -142,6 +152,8 @@ export const submissionRouter = createTRPCRouter({
             years: number;
             level: string;
           } | null,
+          suggestedLocations: (submission.resumeProfile.suggestedLocations ?? []) as string[],
+          suggestedRoles: (submission.resumeProfile.suggestedRoles ?? []) as string[],
         },
       };
     }),
@@ -335,6 +347,107 @@ export const submissionRouter = createTRPCRouter({
         jobs: submission.jobResults,
         profile: submission.resumeProfile,
         createdAt: submission.createdAt,
+      };
+    }),
+
+  // List all submissions for an email (dashboard)
+  listByEmail: publicProcedure
+    .input(z.object({ email: z.string().email() }))
+    .query(async ({ ctx, input }) => {
+      const submissions = await ctx.db.submission.findMany({
+        where: { email: input.email },
+        orderBy: { createdAt: "desc" },
+        include: {
+          jobResults: {
+            select: { score: true },
+            orderBy: { score: "desc" },
+          },
+        },
+      });
+
+      return submissions.map((s) => ({
+        id: s.id,
+        status: s.status,
+        createdAt: s.createdAt,
+        jobCount: s.jobResults.length,
+        topScore: s.jobResults[0]?.score ?? 0,
+        avgScore:
+          s.jobResults.length > 0
+            ? s.jobResults.reduce((sum, j) => sum + j.score, 0) /
+              s.jobResults.length
+            : 0,
+      }));
+    }),
+
+  // Get aggregated stats for a submission (dashboard detail)
+  getStats: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const submission = await ctx.db.submission.findUnique({
+        where: { id: input.id },
+        include: {
+          jobResults: {
+            orderBy: { score: "desc" },
+          },
+        },
+      });
+
+      if (!submission) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      const jobs = submission.jobResults;
+      const scores = jobs.map((j) => j.score);
+
+      // Score distribution buckets: 0-19, 20-39, 40-59, 60-79, 80+
+      const buckets = [
+        { label: "0–19", min: 0, max: 19, count: 0 },
+        { label: "20–39", min: 20, max: 39, count: 0 },
+        { label: "40–59", min: 40, max: 59, count: 0 },
+        { label: "60–79", min: 60, max: 79, count: 0 },
+        { label: "80+", min: 80, max: Infinity, count: 0 },
+      ];
+
+      for (const score of scores) {
+        for (const bucket of buckets) {
+          if (score >= bucket.min && score <= bucket.max) {
+            bucket.count++;
+            break;
+          }
+        }
+      }
+
+      // Tier breakdown
+      const tierCounts: Record<string, number> = {};
+      for (const job of jobs) {
+        const tier = job.tier ?? "Unknown";
+        tierCounts[tier] = (tierCounts[tier] ?? 0) + 1;
+      }
+
+      // Location breakdown (top 5)
+      const locationCounts: Record<string, number> = {};
+      for (const job of jobs) {
+        const loc = job.location ?? "Unknown";
+        locationCounts[loc] = (locationCounts[loc] ?? 0) + 1;
+      }
+      const topLocations = Object.entries(locationCounts)
+        .sort(([, a], [, b]) => b - a)
+        .slice(0, 5);
+
+      return {
+        totalJobs: jobs.length,
+        topScore: scores[0] ?? 0,
+        avgScore:
+          scores.length > 0
+            ? scores.reduce((a, b) => a + b, 0) / scores.length
+            : 0,
+        above50: scores.filter((s) => s >= 50).length,
+        distribution: buckets.map((b) => ({
+          label: b.label,
+          count: b.count,
+        })),
+        tierBreakdown: tierCounts,
+        topLocations,
       };
     }),
 });

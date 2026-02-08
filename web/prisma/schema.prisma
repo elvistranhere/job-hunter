@@ -31,6 +31,7 @@ model Submission {
 
     resumeProfile ResumeProfile?
     jobResults    JobResult[]
+    subscriptions Subscription[]
 
     @@index([email, createdAt])
 }
@@ -46,6 +47,8 @@ model ResumeProfile {
     titles       Json     // string[]
     keywords     Json     // string[]
     experience   Json?    // { years: number, level: string }
+    suggestedLocations Json?  // string[] — AI-inferred from work history
+    suggestedRoles     Json?  // string[] — AI-inferred from titles + skills
     aiResponse   String?  @db.Text
 
     createdAt    DateTime @default(now())
@@ -74,4 +77,54 @@ model JobResult {
     createdAt    DateTime @default(now())
 
     @@index([submissionId, score(sort: Desc)])
+}
+
+// ── Subscription (daily cron digests) ─────────────────────────────────────
+
+enum SubscriptionStatus {
+    ACTIVE
+    PAUSED
+    CANCELLED
+    EXPIRED
+}
+
+model Subscription {
+    id              String             @id @default(cuid())
+    email           String
+    status          SubscriptionStatus @default(ACTIVE)
+
+    // Snapshot of profile data for scoring
+    skills          Json               // [{ name, tier }]
+    titles          Json               // string[]
+    keywords        Json               // string[]
+    locations       Json               // string[]
+    roles           Json               // string[]
+    scoringWeights  Json               // ScoringWeights object
+
+    duration        Int    @default(30)  // 7, 14, 30, or 0 = indefinite
+    nextRunAt       DateTime
+    lastRunAt       DateTime?
+    expiresAt       DateTime?
+
+    createdAt       DateTime @default(now())
+    updatedAt       DateTime @updatedAt
+
+    submissionId    String?
+    submission      Submission? @relation(fields: [submissionId], references: [id])
+    runs            SubscriptionRun[]
+
+    @@index([status, nextRunAt])
+    @@index([email])
+}
+
+model SubscriptionRun {
+    id              String       @id @default(cuid())
+    subscriptionId  String
+    subscription    Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+    status          String       // "queued" | "completed" | "failed"
+    jobCount        Int          @default(0)
+    error           String?
+
+    createdAt       DateTime     @default(now())
 }

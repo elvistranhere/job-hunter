@@ -22,6 +22,8 @@ interface ScoringWeights {
   skills: number;
   sponsorship: number;
   recency: number;
+  culture: number;
+  quality: number;
 }
 
 export default function ProfileEditorPage() {
@@ -37,21 +39,30 @@ export default function ProfileEditorPage() {
     skills: 1,
     sponsorship: 1,
     recency: 1,
+    culture: 1,
+    quality: 1,
   });
-  const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
-  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedLocations, setSelectedLocations] = useState<string[] | null>(null);
+  const [selectedRoles, setSelectedRoles] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDuration, setSelectedDuration] = useState<number>(30);
 
   const { data: profileData, isLoading, isError } = api.submission.getProfile.useQuery(
     { submissionId },
   );
 
-  // Initialize skills from fetched profile
+  // Initialize skills and AI suggestions from fetched profile
   useEffect(() => {
     if (profileData?.profile.skills) {
       setSkills(profileData.profile.skills);
     }
-  }, [profileData]);
+    if (profileData?.profile.suggestedLocations && selectedLocations === null) {
+      setSelectedLocations(profileData.profile.suggestedLocations);
+    }
+    if (profileData?.profile.suggestedRoles && selectedRoles === null) {
+      setSelectedRoles(profileData.profile.suggestedRoles);
+    }
+  }, [profileData, selectedLocations, selectedRoles]);
 
   const startScraping = api.submission.startScraping.useMutation({
     onSuccess: () => {
@@ -62,8 +73,19 @@ export default function ProfileEditorPage() {
     },
   });
 
+  const createSubscription = api.subscription.create.useMutation({
+    onSuccess: (data) => {
+      router.push(`/subscription/${data.id}`);
+    },
+    onError: (err) => {
+      setError(err.message);
+    },
+  });
+
   const handleSubmit = () => {
     setError(null);
+    const locs = selectedLocations ?? [];
+    const roles = selectedRoles ?? [];
     startScraping.mutate({
       submissionId,
       customSkills: skills.map((s) => ({
@@ -72,13 +94,22 @@ export default function ProfileEditorPage() {
       })),
       scoringWeights: weights,
       preferences:
-        selectedLocations.length > 0 || selectedRoles.length > 0
+        locs.length > 0 || roles.length > 0
           ? {
-              locations:
-                selectedLocations.length > 0 ? selectedLocations : undefined,
-              roles: selectedRoles.length > 0 ? selectedRoles : undefined,
+              locations: locs.length > 0 ? locs : undefined,
+              roles: roles.length > 0 ? roles : undefined,
             }
           : undefined,
+    });
+  };
+
+  const handleSubscribe = () => {
+    setError(null);
+    // First save custom skills via startScraping (to persist profile changes)
+    // Then create the subscription
+    createSubscription.mutate({
+      submissionId,
+      duration: selectedDuration,
     });
   };
 
@@ -234,13 +265,15 @@ export default function ProfileEditorPage() {
           <div className="mb-4">
             <h2 className="font-serif text-xl text-white mb-1">Preferences</h2>
             <p className="font-sans text-sm text-navy-400">
-              Optionally filter which locations and roles to search.
+              AI-suggested from your resume. Toggle or add your own.
             </p>
           </div>
           <div className="rounded-xl border border-navy-700 bg-navy-800/40 p-6">
             <PreferenceSelector
-              selectedLocations={selectedLocations}
-              selectedRoles={selectedRoles}
+              selectedLocations={selectedLocations ?? []}
+              selectedRoles={selectedRoles ?? []}
+              suggestedLocations={profile.suggestedLocations ?? []}
+              suggestedRoles={profile.suggestedRoles ?? []}
               onLocationsChange={setSelectedLocations}
               onRolesChange={setSelectedRoles}
             />
@@ -293,6 +326,68 @@ export default function ProfileEditorPage() {
         <p className="mt-3 text-center font-sans text-sm text-navy-500">
           We&apos;ll scrape 5 job boards and email you ranked results in ~15 minutes.
         </p>
+
+        {/* Subscribe to daily digests */}
+        <div className="mt-10 pt-8 border-t border-navy-800">
+          <div className="text-center mb-6">
+            <p className="font-sans text-sm text-navy-400">
+              &mdash; or get results delivered daily &mdash;
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-navy-700 bg-navy-800/40 p-6">
+            <h3 className="font-serif text-lg text-white mb-2">Daily Digest</h3>
+            <p className="font-sans text-sm text-navy-400 mb-4">
+              Subscribe to receive fresh job matches every morning. Same scoring,
+              new listings daily.
+            </p>
+
+            <div className="flex flex-wrap gap-2 mb-4">
+              {[
+                { value: 7, label: "7 days" },
+                { value: 14, label: "14 days" },
+                { value: 30, label: "30 days" },
+                { value: 0, label: "Indefinite" },
+              ].map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setSelectedDuration(value)}
+                  className={`
+                    px-4 py-2 rounded-full font-sans text-sm font-medium
+                    border transition-all duration-200
+                    ${
+                      selectedDuration === value
+                        ? "border-amber-500/60 bg-amber-500/15 text-amber-300"
+                        : "border-navy-600 bg-navy-800/60 text-navy-300 hover:border-navy-400 hover:text-navy-100"
+                    }
+                  `}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={handleSubscribe}
+              disabled={createSubscription.isPending}
+              className={`
+                w-full rounded-xl px-6 py-3
+                font-sans text-sm font-semibold tracking-wide
+                transition-all duration-300 ease-out
+                ${
+                  createSubscription.isPending
+                    ? "bg-navy-700 text-navy-400 cursor-not-allowed"
+                    : "border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/60 active:scale-[0.98]"
+                }
+              `}
+            >
+              {createSubscription.isPending
+                ? "Setting up..."
+                : `Subscribe for ${selectedDuration === 0 ? "daily digests" : `${selectedDuration} days`}`}
+            </button>
+          </div>
+        </div>
       </div>
     </main>
   );
