@@ -1,6 +1,9 @@
 #!/bin/bash
 # Script to manually trigger the daily job scrape workflow
 # Usage: ./trigger_job_scrape.sh [full_run] [min_score]
+#
+# Note: This script is already executable. If you get a permission error, run:
+#   chmod +x trigger_job_scrape.sh
 
 set -e
 

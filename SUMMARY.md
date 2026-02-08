@@ -81,7 +81,7 @@ gh workflow run daily-scrape.yml
 ## What Happens After Secret Update
 
 1. **Automatic Daily Runs**:
-   - Trigger at 9pm UTC (7am Adelaide time)
+   - Trigger at 9pm UTC (~7am-7:30am Adelaide time, depending on daylight saving)
    - Scrape 3 cities × 6 roles = 18 searches
    - Filter last 24 hours
    - Score based on resume

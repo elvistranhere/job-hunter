@@ -117,7 +117,7 @@ If emails don't arrive, check spam/junk folders first.
 
 The three email addresses are now configured to receive daily job digests automatically at:
 - **Time**: 9pm UTC
-- **Local**: ~7am ACST (Adelaide) / ~7:30am ACST
+- **Local**: ~7am-7:30am Adelaide time (varies with daylight saving)
 - **Frequency**: Daily
 - **Content**: Top 20+ jobs from last 24 hours
 
