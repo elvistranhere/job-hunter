@@ -33,3 +33,14 @@ web/generated/
 
 # Screenshots (dev only)
 *.png
+
+# Claude agent skills (symlinks to external packages)
+.claude/skills/*
+!.claude/skills/linkedin-easy-apply/
+
+# Agent/cursor local config
+.agent/
+.cursor/
+
+# Skill packages
+*.skill
