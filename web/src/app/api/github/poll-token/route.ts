@@ -22,9 +22,8 @@ export async function POST(req: Request) {
     method: "POST",
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/json",
     },
-    body: JSON.stringify({
+    body: new URLSearchParams({
       client_id: clientId,
       device_code: body.device_code,
       grant_type: "urn:ietf:params:oauth:grant-type:device_code",
