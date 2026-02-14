@@ -1,9 +1,27 @@
+# Daily Job Scrape — runs in YOUR private fork, not on the public repo.
+#
+# Setup (one-time):
+#   1. Fork this repo to your GitHub account
+#   2. Go to Settings → Secrets and variables → Actions
+#   3. Add these secrets:
+#      - GMAIL_USER         → Your Gmail address
+#      - GMAIL_APP_PASSWORD → Gmail App Password (https://myaccount.google.com/apppasswords)
+#      - EMAIL_TO           → Comma-separated recipient emails
+#   4. Go to Actions → "Daily Job Scrape" → Enable workflow
+#   5. Click "Run workflow" for your first manual run
+#   6. To enable daily automation, uncomment the schedule block below
+#
+# Customize:
+#   - Change the cron time to match your timezone
+#   - Add --no-senior to filter out senior roles
+#   - Adjust --hours, --results, --min-score to your preference
+
 name: Daily Job Scrape
 
 on:
-  schedule:
-    # 9pm UTC = ~7am AEST / ~7:30am ACST (Adelaide)
-    - cron: '0 21 * * *'
+  # Uncomment to run daily (adjust time for your timezone):
+  # schedule:
+  #   - cron: '0 21 * * *'  # 9pm UTC = ~7am AEST
   workflow_dispatch:
     inputs:
       full_run:
@@ -16,11 +34,6 @@ on:
         required: false
         default: '20'
         type: string
-
-# Required GitHub Secrets:
-#   GMAIL_USER         — Gmail address for sending digests
-#   GMAIL_APP_PASSWORD — Gmail App Password (not your regular password)
-#   EMAIL_TO           — Comma-separated recipient emails
 
 jobs:
   scrape-and-email:
@@ -50,8 +63,7 @@ jobs:
           xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
             uv run python scrape.py \
               --hours 24 \
-              --results 20 \
-              --no-senior
+              --results 20
         env:
           PYTHONUNBUFFERED: "1"
           CHROME_BINARY: /usr/bin/google-chrome-stable

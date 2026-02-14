@@ -1,14 +1,25 @@
+# Daily Digest (Web Subscriptions) — runs in YOUR private fork, not on the public repo.
+#
+# This workflow triggers the web app's cron endpoint to process
+# all active email subscriptions created through the web UI.
+#
+# Setup (one-time):
+#   1. Fork this repo and deploy the web app to Vercel
+#   2. Go to Settings → Secrets and variables → Actions
+#   3. Add these secrets:
+#      - APP_URL     → Your Vercel app URL (e.g., https://your-app.vercel.app)
+#      - CRON_SECRET → A random string (must match CRON_SECRET in your Vercel env)
+#   4. Go to Actions → "Daily Digest" → Enable workflow
+#   5. Click "Run workflow" for your first manual run
+#   6. To enable daily automation, uncomment the schedule block below
+
 name: Daily Digest (Web Subscriptions)
 
 on:
-  schedule:
-    # 9pm UTC = ~7am AEST
-    - cron: '0 21 * * *'
+  # Uncomment to run daily (adjust time for your timezone):
+  # schedule:
+  #   - cron: '0 21 * * *'  # 9pm UTC = ~7am AEST
   workflow_dispatch: {}
-
-# Required GitHub Secrets:
-#   APP_URL     — Your Vercel app URL (e.g., https://your-app.vercel.app)
-#   CRON_SECRET — Shared secret for authenticating cron requests
 
 jobs:
   trigger-cron:

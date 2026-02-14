@@ -107,20 +107,20 @@ Resume PDF → AI Parse → Skill Profile → Scrape 5 Boards → Score → Emai
 
 ## Scoring System
 
-Jobs are scored across 8 weighted categories. Each category has a 0x-2x multiplier that users can configure:
+Jobs are scored across 8 weighted categories. Each category has a 0x-2x multiplier that users can configure via the web profile editor:
 
-| Category | What it measures | Max points |
-|----------|-----------------|------------|
-| **Skills** | Match against your skill tiers (core/strong/peripheral) | Uncapped |
-| **Company Tier** | Big Tech, notable AU companies, top tech | 12 |
-| **Location** | City preference match, remote work | 15 |
-| **Title Match** | Role title relevance (graduate, full-stack, etc.) | 18 |
-| **Sponsorship** | Visa sponsorship signals | 12 |
-| **Recency** | How recently the job was posted | 10 |
-| **Culture** | Remote-first, equity, flexible hours | 15 |
-| **Quality** | Salary transparency, detailed JD, benefits | 12 |
+| Category | What it measures | How it works |
+|----------|-----------------|-------------|
+| **Skills** | Match against your skill tiers (core/strong/peripheral) | Points per matched skill from your profile + adjacency bonus + keyword match |
+| **Company Tier** | Big Tech, notable AU companies, top tech | Tiered points based on curated company lists |
+| **Location** | City preference match, remote work | User-defined cities and point values via profile editor |
+| **Title Match** | Role title relevance (graduate, full-stack, etc.) | User-defined title terms and point values via profile editor |
+| **Sponsorship** | Visa sponsorship signals in description | Points per signal detected (e.g., "visa", "sponsorship", "work rights") |
+| **Recency** | How recently the job was posted | More points for newer listings |
+| **Culture** | Remote-first, equity, flexible hours | Bonus points for culture signals (never penalizes absence) |
+| **Quality** | Salary transparency, detailed JD, benefits | Points for salary info, long descriptions, benefits sections |
 
-Negative penalties (bad titles, senior+ roles) are never weighted and always apply.
+Skill tiers, location preferences, and title preferences are all **extracted from your resume by AI** and can be fine-tuned in the profile editor. Negative penalties (bad titles, senior+ roles) are never weighted and always apply.
 
 ## Adding Your Resume
 
