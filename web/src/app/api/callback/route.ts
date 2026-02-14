@@ -19,6 +19,28 @@ interface JobResultPayload {
   isRemote?: boolean;
 }
 
+function parseSubscriptionRunId(submissionId: string): {
+  subscriptionId: string;
+  runId: string;
+} | null {
+  if (!submissionId.startsWith("sub_")) {
+    return null;
+  }
+
+  const parts = submissionId.split("_");
+  if (parts.length < 3) {
+    return null;
+  }
+
+  const runId = parts[parts.length - 1];
+  const subscriptionId = parts.slice(1, -1).join("_");
+  if (!subscriptionId || !runId) {
+    return null;
+  }
+
+  return { subscriptionId, runId };
+}
+
 export async function POST(request: NextRequest) {
   // Verify auth
   const authHeader = request.headers.get("authorization");
@@ -37,12 +59,40 @@ export async function POST(request: NextRequest) {
   };
 
   const { submissionId, status, error, jobResults } = body;
+  const parsedJobCount = body.jobCount ?? jobResults?.length ?? 0;
 
   if (!submissionId || !status) {
     return NextResponse.json(
       { error: "Missing submissionId or status" },
       { status: 400 },
     );
+  }
+
+  const subRunRef = parseSubscriptionRunId(submissionId);
+  if (subRunRef) {
+    const runStatus =
+      status === "completed"
+        ? "completed"
+        : status === "failed"
+          ? "failed"
+          : "running";
+
+    await db.subscriptionRun.update({
+      where: { id: subRunRef.runId },
+      data: {
+        status: runStatus,
+        jobCount: parsedJobCount,
+        error: error ?? null,
+      },
+    });
+
+    return NextResponse.json({
+      ok: true,
+      subscriptionId: subRunRef.subscriptionId,
+      runId: subRunRef.runId,
+      status: runStatus,
+      jobsStored: 0,
+    });
   }
 
   const dbStatus =

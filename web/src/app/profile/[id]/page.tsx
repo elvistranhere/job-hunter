@@ -105,11 +105,24 @@ export default function ProfileEditorPage() {
 
   const handleSubscribe = () => {
     setError(null);
-    // First save custom skills via startScraping (to persist profile changes)
-    // Then create the subscription
+    const locs = selectedLocations ?? [];
+    const roles = selectedRoles ?? [];
+
     createSubscription.mutate({
       submissionId,
       duration: selectedDuration,
+      customSkills: skills.map((s) => ({
+        name: s.name,
+        tier: s.tier as SkillTier,
+      })),
+      scoringWeights: weights,
+      preferences:
+        locs.length > 0 || roles.length > 0
+          ? {
+              locations: locs.length > 0 ? locs : undefined,
+              roles: roles.length > 0 ? roles : undefined,
+            }
+          : undefined,
     });
   };
 

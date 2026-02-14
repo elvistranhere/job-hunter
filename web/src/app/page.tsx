@@ -218,7 +218,7 @@ export default function Home() {
             </span>
           </div>
           <p className="font-sans text-xs text-navy-500">
-            Built with Next.js + Claude
+            Built with Next.js + FastAPI
           </p>
         </div>
       </footer>

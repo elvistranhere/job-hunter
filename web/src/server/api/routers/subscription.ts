@@ -2,6 +2,33 @@ import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { TRPCError } from "@trpc/server";
 
+const scoringWeightsSchema = z.object({
+  companyTier: z.number().min(0).max(2).default(1),
+  location: z.number().min(0).max(2).default(1),
+  titleMatch: z.number().min(0).max(2).default(1),
+  skills: z.number().min(0).max(2).default(1),
+  sponsorship: z.number().min(0).max(2).default(1),
+  recency: z.number().min(0).max(2).default(1),
+  culture: z.number().min(0).max(2).default(1),
+  quality: z.number().min(0).max(2).default(1),
+});
+
+const skillSchema = z.object({
+  name: z.string(),
+  tier: z.enum(["core", "strong", "peripheral"]),
+});
+
+const defaultScoringWeights = {
+  companyTier: 1,
+  location: 1,
+  titleMatch: 1,
+  skills: 1,
+  sponsorship: 1,
+  recency: 1,
+  culture: 1,
+  quality: 1,
+};
+
 export const subscriptionRouter = createTRPCRouter({
   // Create a subscription from a completed submission
   create: publicProcedure
@@ -11,6 +38,14 @@ export const subscriptionRouter = createTRPCRouter({
         duration: z.number().refine((v) => [0, 7, 14, 30].includes(v), {
           message: "Duration must be 0 (indefinite), 7, 14, or 30 days",
         }),
+        customSkills: z.array(skillSchema).optional(),
+        scoringWeights: scoringWeightsSchema.optional(),
+        preferences: z
+          .object({
+            locations: z.array(z.string()).optional(),
+            roles: z.array(z.string()).optional(),
+          })
+          .optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -30,11 +65,39 @@ export const subscriptionRouter = createTRPCRouter({
         });
       }
 
-      // Use custom skills if available, otherwise original
-      const skills =
-        submission.resumeProfile.customSkills ?? submission.resumeProfile.skills;
+      // Persist any latest profile customization before snapshotting subscription.
+      if (input.customSkills) {
+        await ctx.db.resumeProfile.update({
+          where: { submissionId: input.submissionId },
+          data: {
+            customSkills: JSON.parse(JSON.stringify(input.customSkills)),
+          },
+        });
+      }
 
-      // Compute next run: tomorrow at 8am AEST (UTC+10 → 22:00 UTC previous day)
+      if (input.scoringWeights || input.preferences) {
+        await ctx.db.submission.update({
+          where: { id: input.submissionId },
+          data: {
+            scoringWeights: input.scoringWeights
+              ? JSON.parse(JSON.stringify(input.scoringWeights))
+              : undefined,
+            preferences: input.preferences
+              ? JSON.parse(JSON.stringify(input.preferences))
+              : undefined,
+          },
+        });
+      }
+
+      const skills =
+        input.customSkills ??
+        ((submission.resumeProfile.customSkills ??
+          submission.resumeProfile.skills) as Array<{
+          name: string;
+          tier: string;
+        }>);
+
+      // Compute next run: tomorrow at 7am AEST (UTC+10 -> 21:00 UTC previous day)
       const now = new Date();
       const nextRun = new Date(now);
       nextRun.setUTCDate(nextRun.getUTCDate() + 1);
@@ -46,10 +109,12 @@ export const subscriptionRouter = createTRPCRouter({
           ? new Date(now.getTime() + input.duration * 24 * 60 * 60 * 1000)
           : null;
 
-      const preferences = (submission.preferences ?? {}) as Record<
-        string,
-        unknown
-      >;
+      const preferences = (input.preferences ??
+        submission.preferences ??
+        {}) as Record<string, unknown>;
+      const scoringWeights = input.scoringWeights ??
+        ((submission.scoringWeights as Record<string, number> | null) ??
+          defaultScoringWeights);
 
       const sub = await ctx.db.subscription.create({
         data: {
@@ -68,16 +133,7 @@ export const subscriptionRouter = createTRPCRouter({
               (preferences.roles as string[]) ?? [],
             ),
           ),
-          scoringWeights: (submission.scoringWeights ?? {
-            companyTier: 1,
-            location: 1,
-            titleMatch: 1,
-            skills: 1,
-            sponsorship: 1,
-            recency: 1,
-            culture: 1,
-            quality: 1,
-          }) as object,
+          scoringWeights: JSON.parse(JSON.stringify(scoringWeights)) as object,
           duration: input.duration,
           nextRunAt: nextRun,
           expiresAt,

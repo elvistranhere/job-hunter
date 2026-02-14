@@ -21,7 +21,7 @@ const skillSchema = z.object({
 });
 
 export const submissionRouter = createTRPCRouter({
-  // Phase 1: Upload PDF + parse resume (synchronous — waits ~10s for Claude)
+  // Phase 1: Upload PDF + parse resume (synchronous — waits ~10s for AI parsing)
   parseResume: publicProcedure
     .input(
       z.object({
