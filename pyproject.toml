@@ -1,18 +1,24 @@
 [project]
-name = "job-hunter"
-version = "0.1.0"
-description = "Add your description here"
+name = "job-hunter-au"
+version = "1.0.0"
+description = "AI-powered job discovery for Australia — scrapes 5 job boards, scores by fit, sends daily email digests"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.12"
+authors = [
+    { name = "Elvis Tran" },
+]
+keywords = ["job-scraper", "australia", "automation", "python", "job-search"]
 dependencies = [
     "beautifulsoup4>=4.14.3",
-    "curl-cffi>=0.14.0",
     "nodriver>=0.48.1",
     "openpyxl>=3.1.5",
     "pandas>=2.3.3",
-    "playwright>=1.58.0",
-    "playwright-stealth>=2.0.1",
     "python-jobspy>=1.1.82",
     "requests>=2.32.5",
-    "scrapy>=2.14.1",
+    "ruff>=0.9.0",
 ]
+
+[project.urls]
+Repository = "https://github.com/elvistran/job-hunter-au"
+Issues = "https://github.com/elvistran/job-hunter-au/issues"

@@ -18,6 +18,17 @@ jobs/email_preview.html
 config/search.json
 .env
 
+# Resumes (bring your own — only README.md is tracked)
+resumes/*
+!resumes/README.md
+
+# Personal resume files
+ElvisTran.pdf
+*.pdf
+
+# Cover letters
+cover-letters/
+
 # Planning docs (local only)
 .planning/
 
