@@ -1,10 +1,9 @@
 name: Daily Digest (Web Subscriptions)
 
 on:
-  # Uncomment to run on a schedule (processes all active web subscriptions):
-  # schedule:
-  #   # 9pm UTC = ~7am AEST
-  #   - cron: '0 21 * * *'
+  schedule:
+    # 9pm UTC = ~7am AEST
+    - cron: '0 21 * * *'
   workflow_dispatch: {}
 
 # Required GitHub Secrets:

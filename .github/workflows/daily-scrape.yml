@@ -1,10 +1,9 @@
 name: Daily Job Scrape
 
 on:
-  # Uncomment and adjust the cron schedule for your timezone:
-  # schedule:
-  #   # 9pm UTC = ~7am AEST / ~7:30am ACST (Adelaide)
-  #   - cron: '0 21 * * *'
+  schedule:
+    # 9pm UTC = ~7am AEST / ~7:30am ACST (Adelaide)
+    - cron: '0 21 * * *'
   workflow_dispatch:
     inputs:
       full_run:
@@ -51,7 +50,8 @@ jobs:
           xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
             uv run python scrape.py \
               --hours 24 \
-              --results 20
+              --results 20 \
+              --no-senior
         env:
           PYTHONUNBUFFERED: "1"
           CHROME_BINARY: /usr/bin/google-chrome-stable
