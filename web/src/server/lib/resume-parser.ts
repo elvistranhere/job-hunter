@@ -4,12 +4,12 @@ import { env } from "~/env";
 
 const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY ?? "");
 
-interface ParsedSkill {
+export interface ParsedSkill {
   name: string;
   tier: "core" | "strong" | "peripheral";
 }
 
-interface ParsedProfile {
+export interface ParsedProfile {
   rawText: string;
   skills: ParsedSkill[];
   titles: string[];
@@ -18,6 +18,57 @@ interface ParsedProfile {
   suggestedLocations: string[];
   suggestedRoles: string[];
   aiResponse: string;
+}
+
+export interface ScoringWeights {
+  skills: number;
+  companyTier: number;
+  location: number;
+  titleMatch: number;
+  sponsorship: number;
+  recency: number;
+  culture: number;
+  quality: number;
+}
+
+const DEFAULT_LOCATIONS = ["Adelaide", "Sydney", "Melbourne"] as const;
+
+const DEFAULT_WEIGHTS: ScoringWeights = {
+  skills: 1.0,
+  companyTier: 1.0,
+  location: 1.0,
+  titleMatch: 1.0,
+  sponsorship: 1.0,
+  recency: 1.0,
+  culture: 1.0,
+  quality: 1.0,
+};
+
+type GeminiParsedResponse = {
+  reasoning?: string;
+  skills?: Array<{ name?: unknown; tier?: unknown }>;
+  titles?: unknown;
+  keywords?: unknown;
+  experience?: { years: number; level: string } | null;
+  suggestedLocations?: unknown;
+  suggestedRoles?: unknown;
+};
+
+function normalizeStringArray(input: unknown): string[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item): item is string => item.length > 0);
+}
+
+function normalizeTier(input: unknown): ParsedSkill["tier"] {
+  if (input === "core" || input === "strong" || input === "peripheral") {
+    return input;
+  }
+  return "peripheral";
 }
 
 export async function parseResumePdf(
@@ -46,7 +97,7 @@ When analyzing a resume:
 - Assess tier by IMPACT, not just frequency: A skill used to build the core product at a job is more important than one listed 3 times in a skills section.
 - Think about what a hiring manager would search for when trying to find this candidate.`,
     generationConfig: {
-      temperature: 0.3,
+      temperature: 0.1,
       responseMimeType: "application/json",
       maxOutputTokens: 4096,
     },
@@ -86,35 +137,86 @@ LOCATIONS: Infer from university + work cities. AU names: Adelaide/Sydney/Melbou
 ROLES: Search-friendly job titles a recruiter would use to find this person. Return 2-4.
 KEYWORDS: 10-18 lowercase terms for job board searches. Include primary stack + implied technologies.`;
 
-  const genResult = await model.generateContent(prompt);
-  const aiText = genResult.response.text();
+  let aiText = "";
+  let parsedData: GeminiParsedResponse | null = null;
 
-  // Parse the JSON response (responseMimeType ensures valid JSON, but be safe)
-  let parsed_data: {
-    reasoning?: string;
-    skills: ParsedSkill[];
-    titles: string[];
-    keywords: string[];
-    experience: { years: number; level: string } | null;
-    suggestedLocations: string[];
-    suggestedRoles: string[];
-  };
+  for (let attempt = 0; attempt <= 2; attempt++) {
+    const genResult = await model.generateContent(prompt);
+    aiText = genResult.response.text();
 
-  try {
-    const jsonStr = aiText.replace(/```json\n?|\n?```/g, "").trim();
-    parsed_data = JSON.parse(jsonStr) as typeof parsed_data;
-  } catch {
-    throw new Error("Failed to parse AI response. Please try again.");
+    try {
+      const jsonStr = aiText.replace(/```json\n?|\n?```/g, "").trim();
+      parsedData = JSON.parse(jsonStr) as GeminiParsedResponse;
+      break;
+    } catch {
+      if (attempt === 2) {
+        throw new Error(
+          "Failed to parse AI response as JSON after 3 attempts. Please try again.",
+        );
+      }
+    }
   }
+
+  const skills = (parsedData?.skills ?? [])
+    .map((skill) => {
+      const name = typeof skill.name === "string" ? skill.name.trim() : "";
+      if (!name) {
+        return null;
+      }
+
+      return {
+        name,
+        tier: normalizeTier(skill.tier),
+      } satisfies ParsedSkill;
+    })
+    .filter((skill): skill is ParsedSkill => skill !== null);
+
+  if (skills.length === 0) {
+    throw new Error(
+      "Resume parser returned no skills. Please upload a clearer, text-based resume and try again.",
+    );
+  }
+
+  const titles = normalizeStringArray(parsedData?.titles);
+  const keywords = normalizeStringArray(parsedData?.keywords);
+  const suggestedLocations = normalizeStringArray(parsedData?.suggestedLocations);
+  const suggestedRoles = normalizeStringArray(parsedData?.suggestedRoles);
 
   return {
     rawText,
-    skills: parsed_data.skills ?? [],
-    titles: parsed_data.titles ?? [],
-    keywords: parsed_data.keywords ?? [],
-    experience: parsed_data.experience ?? null,
-    suggestedLocations: parsed_data.suggestedLocations ?? [],
-    suggestedRoles: parsed_data.suggestedRoles ?? [],
+    skills,
+    titles,
+    keywords,
+    experience: parsedData?.experience ?? null,
+    suggestedLocations:
+      suggestedLocations.length > 0 ? suggestedLocations : [...DEFAULT_LOCATIONS],
+    suggestedRoles: suggestedRoles.length > 0 ? suggestedRoles : titles,
     aiResponse: aiText,
   };
+}
+
+export function exportProfileJson(
+  profile: ParsedProfile,
+  weights?: ScoringWeights,
+): string {
+  const resolvedWeights: ScoringWeights = {
+    ...DEFAULT_WEIGHTS,
+    ...weights,
+  };
+
+  return JSON.stringify(
+    {
+      skills: profile.skills.map((skill) => ({
+        name: skill.name,
+        tier: normalizeTier(skill.tier),
+      })),
+      titles: profile.titles,
+      keywords: profile.keywords,
+      locations: profile.suggestedLocations,
+      roles: profile.suggestedRoles,
+      weights: resolvedWeights,
+    },
+    null,
+    2,
+  );
 }
