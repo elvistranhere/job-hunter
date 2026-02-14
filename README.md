@@ -4,6 +4,20 @@ Automated job discovery for Australia. Upload your resume, AI parses your skills
 
 **Zero hosting required** — just a profile file and a GitHub Actions cron job.
 
+## Screenshots
+
+| Upload & Parse | Profile Editor |
+|:-:|:-:|
+| ![Homepage](screenshots/01-homepage.png) | ![Profile Editor](screenshots/02-profile-editor.png) |
+
+| Scoring Weights | Export JSON |
+|:-:|:-:|
+| ![Scoring Weights](screenshots/03-scoring-weights.png) | ![Export JSON](screenshots/04-export-json.png) |
+
+| GitHub Automation |
+|:-:|
+| ![GitHub Automation](screenshots/05-github-automation.png) |
+
 ## How It Works
 
 ```text
