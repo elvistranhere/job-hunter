@@ -1,19 +1,13 @@
 # Resumes
 
-Place your resume files here. The scraper uses these for AI-powered job matching.
+Place your resume PDF here for reference. The web app and CLI use `profile.json` (not raw resume files) for job matching.
 
-## Supported Formats
+## How It Works
 
-- **PDF** — Upload via the web app, or place here for CLI mode
-- **LaTeX** — If you use LaTeX, place your `.tex` source and build artifacts here
-
-## CLI Mode
-
-The CLI scraper (`scrape.py`) looks for resume files in this directory. Place your PDF resume here and it will be parsed automatically.
-
-## Web App Mode
-
-Upload your PDF through the web interface at `/` — no need to place files here manually.
+1. Upload your PDF via the web app (`npm run dev` in `web/`)
+2. AI parses your skills, titles, and experience
+3. You customize and export `profile.json`
+4. The scraper uses `profile.json` for scoring
 
 ## Privacy
 

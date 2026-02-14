@@ -16,7 +16,7 @@ A clear description of what's going wrong.
 - [ ] Scoring algorithm
 - [ ] Email digest
 - [ ] Web app
-- [ ] Worker / deployment
+- [ ] GitHub Actions / CI
 - [ ] Other
 
 ## Steps to Reproduce

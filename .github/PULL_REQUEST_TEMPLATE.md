@@ -30,4 +30,4 @@
 
 ## Screenshots
 
-<!-- If applicable, add screenshots of email output, dashboard, etc. -->
+<!-- If applicable, add screenshots of email output, web UI, etc. -->
