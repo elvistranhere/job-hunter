@@ -222,8 +222,8 @@ export async function POST(req: Request) {
       const fileData = (await fileRes.json()) as { content: string; sha: string };
       const content = atob(fileData.content.replace(/\n/g, ""));
       const updatedContent = content.replace(
-        /# schedule:\n  #   - cron: '0 21 \* \* \*'/,
-        "schedule:\n    - cron: '0 21 * * *'",
+        /  # schedule:\n  #   - cron: '0 21 \* \* \*'[^\n]*/,
+        "  schedule:\n    - cron: '0 21 * * *'",
       );
 
       if (updatedContent !== content) {
