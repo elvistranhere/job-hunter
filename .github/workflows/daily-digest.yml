@@ -16,9 +16,8 @@
 name: Daily Digest (Web Subscriptions)
 
 on:
-  # Uncomment to run daily (adjust time for your timezone):
-  # schedule:
-  #   - cron: '0 21 * * *'  # 9pm UTC = ~7am AEST
+  schedule:
+    - cron: '0 21 * * *'  # 9pm UTC = ~7am AEST
   workflow_dispatch: {}
 
 jobs:
