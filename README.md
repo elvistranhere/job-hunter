@@ -4,6 +4,10 @@ Automated job discovery for Australia. Upload your resume, AI parses your skills
 
 **Zero hosting required** — just a profile file and a GitHub Actions cron job.
 
+## Demo
+
+<video src="demo.mp4" width="100%" autoplay loop muted playsinline></video>
+
 ## Screenshots
 
 | Upload & Parse | Profile Editor |

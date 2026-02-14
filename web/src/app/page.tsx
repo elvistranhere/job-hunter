@@ -589,7 +589,7 @@ export default function Home() {
         </div>
         <div className="flex items-center gap-4">
           <a
-            href="https://github.com/elvistran/job-hunter"
+            href="https://github.com/elvistranhere/job-hunter"
             target="_blank"
             rel="noopener noreferrer"
             className="font-sans text-sm text-navy-400 hover:text-navy-200 transition-colors"
