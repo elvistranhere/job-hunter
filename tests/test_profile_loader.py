@@ -15,17 +15,16 @@ Scenarios:
 """
 
 import json
+
+# Import the actual load_profile from scrape.py
+import sys
 import tempfile
 from pathlib import Path
 
 import pytest
 
-# Import the actual load_profile from scrape.py
-import sys
-
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from scrape import load_profile
-
 
 # ─── Fixtures ────────────────────────────────────────────────────────────────
 
