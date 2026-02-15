@@ -24,5 +24,9 @@
     "recency": 1.0,
     "culture": 1.0,
     "quality": 1.0
-  }
+  },
+  "maxHours": 24,
+  "resultsPerSearch": 20,
+  "excludeSeniority": ["senior", "lead", "staff", "director", "executive"],
+  "minScore": 20
 }

@@ -68,11 +68,11 @@ cp profile.example.json profile.json
 uv sync
 
 # 3. Run a scrape
-uv run python scrape.py --profile profile.json --hours 24
+uv run python scrape.py --profile profile.json
 
 # 4. Send email digest
 GMAIL_USER=you@gmail.com GMAIL_APP_PASSWORD=xxxx EMAIL_TO=you@gmail.com \
-  uv run python email_digest.py
+  uv run python email_digest.py --profile profile.json
 ```
 
 ## Daily Automation (GitHub Actions)
@@ -133,6 +133,23 @@ Jobs are scored on 8 weighted dimensions:
 | Recency | 10 | Newer postings score higher |
 
 All weights are configurable in `profile.json` (0x = off, 1x = default, 2x = double).
+
+### profile.json Reference
+
+`profile.json` is the single source of truth for the pipeline. The web app generates it; CLI flags are optional overrides.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `skills` | array | — | Skills with tiers: `core`, `strong`, `peripheral` |
+| `titles` | string[] | — | Your professional titles (for title matching) |
+| `keywords` | string[] | — | Search terms used across job boards |
+| `locations` | string[] | — | Australian cities to search |
+| `roles` | string[] | — | Role titles to search for |
+| `weights` | object | all `1.0` | Scoring category multipliers (0x = off, 2x = double) |
+| `maxHours` | number | `24` | Max hours since job was posted |
+| `resultsPerSearch` | number | `20` | Results per search query per site |
+| `excludeSeniority` | string[] | `["senior","lead","staff","director","executive"]` | Seniority levels to filter out |
+| `minScore` | number | `20` | Minimum score for email digest inclusion |
 
 ## Project Structure
 

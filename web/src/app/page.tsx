@@ -9,6 +9,7 @@ import { WeightSliders } from "~/app/_components/weight-sliders";
 
 type WizardStep = 1 | 2 | 3 | 4;
 type SkillTier = "core" | "strong" | "peripheral";
+type SeniorityLevel = "intern" | "junior" | "mid" | "senior" | "lead" | "staff" | "director" | "executive";
 type ProgressStatus = "pending" | "in-progress" | "complete";
 type DeployTask =
   | "forking"
@@ -229,6 +230,11 @@ export default function Home() {
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [minScore, setMinScore] = useState(20);
+  const [maxHours, setMaxHours] = useState(24);
+  const [resultsPerSearch, setResultsPerSearch] = useState(20);
+  const [excludeSeniority, setExcludeSeniority] = useState<SeniorityLevel[]>([
+    "senior", "lead", "staff", "director", "executive",
+  ]);
 
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
 
@@ -277,8 +283,11 @@ export default function Home() {
       roles: selectedRoles,
       weights,
       minScore,
+      maxHours,
+      resultsPerSearch,
+      excludeSeniority,
     };
-  }, [profile, selectedLocations, selectedRoles, skills, weights, minScore]);
+  }, [profile, selectedLocations, selectedRoles, skills, weights, minScore, maxHours, resultsPerSearch, excludeSeniority]);
 
   const profileJson = useMemo(() => {
     if (!exportedProfile) {
@@ -895,6 +904,75 @@ export default function Home() {
               <p className="mt-2 font-sans text-xs text-navy-500">
                 Default: 20. Lower = more jobs in digest, higher = only top matches.
               </p>
+            </div>
+          </section>
+
+          <section className="mb-10">
+            <div className="mb-4">
+              <h2 className="font-serif text-xl text-white mb-1">Search Settings</h2>
+              <p className="font-sans text-sm text-navy-400">
+                Control how the scraper searches for jobs.
+              </p>
+            </div>
+            <div className="rounded-xl border border-navy-700 bg-navy-800/40 p-6 space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <label className="block">
+                  <span className="mb-2 block font-sans text-sm text-navy-300">Max hours since posted</span>
+                  <select
+                    value={maxHours}
+                    onChange={(e) => setMaxHours(Number(e.target.value))}
+                    className="w-full rounded-xl border border-navy-600 bg-navy-900/70 px-4 py-2.5 font-sans text-sm text-white focus:outline-none focus:border-amber-500/60"
+                  >
+                    <option value={24}>24 hours (daily)</option>
+                    <option value={48}>48 hours</option>
+                    <option value={72}>72 hours</option>
+                    <option value={168}>1 week</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-2 block font-sans text-sm text-navy-300">Results per search</span>
+                  <select
+                    value={resultsPerSearch}
+                    onChange={(e) => setResultsPerSearch(Number(e.target.value))}
+                    className="w-full rounded-xl border border-navy-600 bg-navy-900/70 px-4 py-2.5 font-sans text-sm text-white focus:outline-none focus:border-amber-500/60"
+                  >
+                    <option value={10}>10 (fast)</option>
+                    <option value={20}>20 (balanced)</option>
+                    <option value={30}>30 (thorough)</option>
+                    <option value={50}>50 (exhaustive)</option>
+                  </select>
+                </label>
+              </div>
+              <div>
+                <span className="mb-2 block font-sans text-sm text-navy-300">Exclude seniority levels</span>
+                <div className="flex flex-wrap gap-2">
+                  {(["intern", "junior", "mid", "senior", "lead", "staff", "director", "executive"] as SeniorityLevel[]).map((level) => {
+                    const isExcluded = excludeSeniority.includes(level);
+                    return (
+                      <button
+                        key={level}
+                        type="button"
+                        onClick={() =>
+                          setExcludeSeniority((prev) =>
+                            isExcluded ? prev.filter((l) => l !== level) : [...prev, level],
+                          )
+                        }
+                        className={`px-3 py-1.5 rounded-full font-sans text-sm font-medium border transition-all duration-200 capitalize ${
+                          isExcluded
+                            ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                            : "border-navy-600 bg-navy-800/60 text-navy-300 hover:border-navy-400"
+                        }`}
+                      >
+                        {isExcluded && <span className="mr-1 text-xs">✕</span>}
+                        {level}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 font-sans text-xs text-navy-500">
+                  Red = excluded from results. Click to toggle.
+                </p>
+              </div>
             </div>
           </section>
 

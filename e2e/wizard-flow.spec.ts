@@ -13,11 +13,10 @@
  */
 import { expect, test } from "@playwright/test";
 
-// Helper: the "add new skill" tier select is the one next to the "Add" button
+// Helper: the "add new skill" tier select is scoped to the skill input's parent
 function getAddSkillTierSelect(page: import("@playwright/test").Page) {
-  return page.locator(
-    'select.rounded-xl.border-navy-600',
-  );
+  const skillInput = page.locator('input[placeholder*="Add a skill"]');
+  return skillInput.locator("..").locator("select");
 }
 
 // Helper: the minScore slider has max=80 and step=5 (not the weight sliders which have max=2)

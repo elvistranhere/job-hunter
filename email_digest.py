@@ -10,6 +10,7 @@ Usage:
 
 import argparse
 import html
+import json
 import os
 import smtplib
 import sys
@@ -457,15 +458,32 @@ def send_email(subject: str, html_body: str, to: str | None = None) -> bool:
 # ── CLI ──────────────────────────────────────────────────────────────────────
 
 
+def _read_profile_min_score(profile_path: str) -> float | None:
+    """Read minScore from a profile.json file. Returns None if unavailable."""
+    try:
+        data = json.loads(Path(profile_path).read_text(encoding="utf-8"))
+        return float(data.get("minScore", 20))
+    except (FileNotFoundError, json.JSONDecodeError, TypeError, ValueError):
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="Send Job Hunter email digest")
     parser.add_argument("csv_path", nargs="?", help="Path to ranked jobs CSV (default: latest in jobs/)")
-    parser.add_argument("--min-score", type=float, default=20.0, help="Minimum score threshold (default: 20)")
+    parser.add_argument("--profile", type=str, default="profile.json", help="Path to profile JSON (reads minScore)")
+    parser.add_argument("--min-score", type=float, default=None, help="Override minimum score (default: from profile)")
     parser.add_argument("--dry-run", action="store_true", help="Render HTML preview, don't send email")
     parser.add_argument("--to", type=str, help="Override recipient email")
     args = parser.parse_args()
 
     _load_dotenv()
+
+    # Resolve min_score: CLI flag > profile.json > default 20
+    if args.min_score is not None:
+        min_score = args.min_score
+    else:
+        profile_min = _read_profile_min_score(args.profile)
+        min_score = profile_min if profile_min is not None else 20.0
 
     # Find CSV
     if args.csv_path:
@@ -483,8 +501,8 @@ def main():
     print(f"  {len(df)} jobs loaded")
 
     # Render
-    email_html = render_email_html(df, min_score=args.min_score)
-    above_threshold = len(df[df["score"] >= args.min_score])
+    email_html = render_email_html(df, min_score=min_score)
+    above_threshold = len(df[df["score"] >= min_score])
 
     if args.dry_run:
         preview_path = Path("jobs/email_preview.html")

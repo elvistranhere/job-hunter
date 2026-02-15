@@ -11,12 +11,7 @@ on:
         default: 'false'
         type: boolean
       hours:
-        description: 'Max hours since posted'
-        required: false
-        default: '24'
-        type: string
-      min_score:
-        description: 'Minimum score for email digest (blank = use profile.json minScore)'
+        description: 'Override max hours since posted (blank = use profile.json)'
         required: false
         default: ''
         type: string
@@ -57,36 +52,27 @@ jobs:
             exit 1
           fi
 
-      - name: Run scraper (focused)
-        if: ${{ !(inputs.full_run == true || inputs.full_run == 'true') }}
+      - name: Run scraper
         env:
           CHROME_BINARY: /usr/bin/google-chrome-stable
           PYTHONUNBUFFERED: "1"
         run: |
+          EXTRA_ARGS=""
+          if [ -n "${{ inputs.hours }}" ]; then
+            EXTRA_ARGS="--hours ${{ inputs.hours }}"
+          fi
+          if [ "${{ inputs.full_run }}" = "true" ]; then
+            EXTRA_ARGS="$EXTRA_ARGS --hours 48"
+          fi
           xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
-            uv run python scrape.py --profile profile.json --hours "${{ inputs.hours || '24' }}" --results 20
-
-      - name: Run scraper (full)
-        if: ${{ inputs.full_run == true || inputs.full_run == 'true' }}
-        env:
-          CHROME_BINARY: /usr/bin/google-chrome-stable
-          PYTHONUNBUFFERED: "1"
-        run: |
-          xvfb-run --auto-servernum --server-args="-screen 0 1280x720x24" \
-            uv run python scrape.py --profile profile.json --hours 48
-
-      - name: Read min score from profile
-        id: profile-config
-        run: |
-          MIN_SCORE=$(python3 -c "import json; p=json.load(open('profile.json')); print(p.get('minScore', 20))" 2>/dev/null || echo "20")
-          echo "min_score=$MIN_SCORE" >> "$GITHUB_OUTPUT"
+            uv run python scrape.py --profile profile.json $EXTRA_ARGS
 
       - name: Send email digest
         env:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
-        run: uv run python email_digest.py --min-score "${{ inputs.min_score || steps.profile-config.outputs.min_score || '20' }}"
+        run: uv run python email_digest.py --profile profile.json
 
       - name: Upload jobs artifact
         uses: actions/upload-artifact@v4

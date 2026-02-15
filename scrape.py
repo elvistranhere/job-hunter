@@ -245,11 +245,31 @@ def load_profile(path: str | Path) -> dict:
         except (TypeError, ValueError):
             weights[key] = default_value
 
+    # Search settings (new fields — backward-compatible defaults)
+    try:
+        max_hours = int(profile_json.get("maxHours", 24))
+    except (TypeError, ValueError):
+        max_hours = 24
+
+    try:
+        results_per_search = int(profile_json.get("resultsPerSearch", 20))
+    except (TypeError, ValueError):
+        results_per_search = 20
+
+    raw_exclude = profile_json.get("excludeSeniority", [])
+    exclude_seniority = [str(s).strip().lower() for s in raw_exclude if str(s).strip()]
+
+    try:
+        min_score = int(profile_json.get("minScore", 20))
+    except (TypeError, ValueError):
+        min_score = 20
+
     print(
         "Loaded profile: "
         f"{len(skills)} skills "
         f"({tier_counts['core']} core, {tier_counts['strong']} strong, {tier_counts['peripheral']} peripheral), "
-        f"{len(locations)} locations, {len(roles)} roles"
+        f"{len(locations)} locations, {len(roles)} roles, "
+        f"hours={max_hours}, results={results_per_search}"
     )
 
     return {
@@ -260,6 +280,10 @@ def load_profile(path: str | Path) -> dict:
         "roles": roles,
         "weights": weights,
         "skill_tiers": skill_tiers,
+        "max_hours": max_hours,
+        "results_per_search": results_per_search,
+        "exclude_seniority": exclude_seniority,
+        "min_score": min_score,
     }
 
 
@@ -933,12 +957,13 @@ def _normalize_au_location(location: str) -> str:
 def main():
     parser = argparse.ArgumentParser(description="Job Hunter - Australian jobs matched to your profile")
     parser.add_argument("--profile", type=str, default="profile.json", help="Path to profile JSON file")
-    parser.add_argument("--resume-dir", type=str, default=None, help="Deprecated alias for --profile")
     parser.add_argument("--search", type=str, help="Override search terms with a single custom term")
     parser.add_argument("--location", type=str, help="Single location override (e.g. 'Sydney')")
     parser.add_argument("--sites", type=str, nargs="+", default=SITES)
-    parser.add_argument("--results", type=int, default=30, help="Results per search per site")
-    parser.add_argument("--hours", type=int, default=72, help="Max hours since posted")
+    parser.add_argument("--results", type=int, default=None, help="Override results per search (default: from profile)")
+    parser.add_argument(
+        "--hours", type=int, default=None, help="Override max hours since posted (default: from profile)"
+    )
     parser.add_argument("--big-tech", action="store_true", help="Show only big tech / notable companies")
     parser.add_argument("--job-type", type=str, choices=["fulltime", "parttime", "internship", "contract"])
     parser.add_argument(
@@ -956,12 +981,7 @@ def main():
 
     args = parser.parse_args()
 
-    if args.resume_dir:
-        print("  Warning: --resume-dir is deprecated; use --profile instead.")
-        if args.profile == "profile.json":
-            args.profile = args.resume_dir
-
-    # 1. Load profile
+    # 1. Load profile (single source of truth)
     print("\n[1/3] Loading profile...")
     profile_data = load_profile(args.profile)
     profile = {
@@ -970,7 +990,7 @@ def main():
         "keywords": profile_data["keywords"],
     }
 
-    # 2. Determine search parameters
+    # 2. Determine search parameters (profile defaults, CLI overrides)
     if args.location:
         locations = [_normalize_au_location(args.location)]
     else:
@@ -978,10 +998,13 @@ def main():
 
     search_terms = [args.search] if args.search else profile_data["roles"]
 
+    hours_old = args.hours if args.hours is not None else profile_data["max_hours"]
+    results_wanted = args.results if args.results is not None else profile_data["results_per_search"]
+
     defaults = {
         "sites": args.sites,
-        "results_wanted": args.results,
-        "hours_old": args.hours,
+        "results_wanted": results_wanted,
+        "hours_old": hours_old,
         "job_type": args.job_type,
     }
 
@@ -1022,14 +1045,16 @@ def main():
         axis=1,
     )
 
-    # Seniority filtering
+    # Seniority filtering (profile excludeSeniority + CLI overrides)
+    exclude_levels = set(profile_data.get("exclude_seniority", []))
     if args.no_senior:
-        exclude_levels = {"senior", "lead", "staff", "director", "executive", "intern"}
+        exclude_levels |= {"senior", "lead", "staff", "director", "executive", "intern"}
+    if exclude_levels:
         before = len(jobs)
         jobs = jobs[~jobs["seniority"].isin(exclude_levels)]
         filtered = before - len(jobs)
         if filtered:
-            print(f"  Filtered out {filtered} senior+ and intern roles")
+            print(f"  Filtered out {filtered} jobs (excluded: {', '.join(sorted(exclude_levels))})")
 
     if args.seniority:
         before = len(jobs)

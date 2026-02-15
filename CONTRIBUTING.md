@@ -43,8 +43,8 @@ cp web/.env.example web/.env
 cd web && npm run dev
 
 # Terminal 2: run CLI scrape when needed
-uv run python scrape.py --profile profile.json --hours 24
-uv run python email_digest.py
+uv run python scrape.py --profile profile.json
+uv run python email_digest.py --profile profile.json
 ```
 
 No database setup required — the web app runs entirely locally.

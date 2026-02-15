@@ -59,8 +59,10 @@ function normalizeTier(input: unknown): SkillTier {
   return "peripheral";
 }
 
+type SeniorityLevel = "intern" | "junior" | "mid" | "senior" | "lead" | "staff" | "director" | "executive";
+
 /**
- * Replicates the exportedProfile useMemo from page.tsx (lines 267-281).
+ * Replicates the exportedProfile useMemo from page.tsx.
  * This is the function that generates the profile.json content.
  */
 function buildExportedProfile(params: {
@@ -69,6 +71,9 @@ function buildExportedProfile(params: {
   selectedLocations: string[];
   weights: ScoringWeights;
   minScore: number;
+  maxHours?: number;
+  resultsPerSearch?: number;
+  excludeSeniority?: SeniorityLevel[];
 }) {
   return {
     skills: params.skills.map((skill) => ({
@@ -81,6 +86,9 @@ function buildExportedProfile(params: {
     roles: params.selectedRoles,
     weights: params.weights,
     minScore: params.minScore,
+    maxHours: params.maxHours ?? 24,
+    resultsPerSearch: params.resultsPerSearch ?? 20,
+    excludeSeniority: params.excludeSeniority ?? ["senior", "lead", "staff", "director", "executive"],
   };
 }
 
@@ -160,6 +168,9 @@ describe("buildExportedProfile (profile.json generation)", () => {
       roles: ["Full Stack Developer", "Frontend Engineer"],
       weights: DEFAULT_WEIGHTS,
       minScore: 20,
+      maxHours: 24,
+      resultsPerSearch: 20,
+      excludeSeniority: ["senior", "lead", "staff", "director", "executive"],
     });
   });
 
@@ -641,5 +652,97 @@ describe("Edge cases and concerns", () => {
 
     expect(profile).toHaveProperty("minScore");
     expect(typeof profile.minScore).toBe("number");
+  });
+});
+
+describe("New profile fields (maxHours, resultsPerSearch, excludeSeniority)", () => {
+  it("includes all new fields with defaults", () => {
+    const profile = buildExportedProfile({
+      skills: [{ name: "React", tier: "core" }],
+      selectedRoles: ["Dev"],
+      selectedLocations: ["Adelaide"],
+      weights: DEFAULT_WEIGHTS,
+      minScore: 20,
+    });
+
+    expect(profile).toHaveProperty("maxHours");
+    expect(profile).toHaveProperty("resultsPerSearch");
+    expect(profile).toHaveProperty("excludeSeniority");
+    expect(profile.maxHours).toBe(24);
+    expect(profile.resultsPerSearch).toBe(20);
+    expect(profile.excludeSeniority).toEqual(["senior", "lead", "staff", "director", "executive"]);
+  });
+
+  it("accepts custom maxHours", () => {
+    const profile = buildExportedProfile({
+      skills: [],
+      selectedRoles: [],
+      selectedLocations: [],
+      weights: DEFAULT_WEIGHTS,
+      minScore: 20,
+      maxHours: 72,
+    });
+
+    expect(profile.maxHours).toBe(72);
+  });
+
+  it("accepts custom resultsPerSearch", () => {
+    const profile = buildExportedProfile({
+      skills: [],
+      selectedRoles: [],
+      selectedLocations: [],
+      weights: DEFAULT_WEIGHTS,
+      minScore: 20,
+      resultsPerSearch: 50,
+    });
+
+    expect(profile.resultsPerSearch).toBe(50);
+  });
+
+  it("accepts custom excludeSeniority", () => {
+    const profile = buildExportedProfile({
+      skills: [],
+      selectedRoles: [],
+      selectedLocations: [],
+      weights: DEFAULT_WEIGHTS,
+      minScore: 20,
+      excludeSeniority: ["intern"],
+    });
+
+    expect(profile.excludeSeniority).toEqual(["intern"]);
+  });
+
+  it("accepts empty excludeSeniority (include all levels)", () => {
+    const profile = buildExportedProfile({
+      skills: [],
+      selectedRoles: [],
+      selectedLocations: [],
+      weights: DEFAULT_WEIGHTS,
+      minScore: 20,
+      excludeSeniority: [],
+    });
+
+    expect(profile.excludeSeniority).toEqual([]);
+  });
+
+  it("new fields survive JSON round-trip", () => {
+    const profile = buildExportedProfile({
+      skills: [{ name: "React", tier: "core" }],
+      selectedRoles: ["Dev"],
+      selectedLocations: ["Adelaide"],
+      weights: DEFAULT_WEIGHTS,
+      minScore: 35,
+      maxHours: 48,
+      resultsPerSearch: 30,
+      excludeSeniority: ["senior", "lead"],
+    });
+
+    const json = JSON.stringify(profile, null, 2);
+    const parsed = JSON.parse(json);
+
+    expect(parsed.maxHours).toBe(48);
+    expect(parsed.resultsPerSearch).toBe(30);
+    expect(parsed.excludeSeniority).toEqual(["senior", "lead"]);
+    expect(parsed.minScore).toBe(35);
   });
 });
