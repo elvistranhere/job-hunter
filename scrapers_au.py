@@ -5,7 +5,7 @@ Seek: Extracts job data from embedded SEEK_REDUX_DATA JSON (server-side rendered
 Prosple: Uses their internal GraphQL gateway API to search graduate opportunities.
 GradConnection: Scrapes article cards from search result pages.
 
-Indeed and LinkedIn are handled by JobSpy in scrape.py — not duplicated here.
+Indeed and LinkedIn are handled by JobSpy in scrape.py - not duplicated here.
 
 Returns list[dict] with keys: title, company, location, job_url, site, description, date_posted.
 """
@@ -149,7 +149,7 @@ def _parse_seek_jobs(html: str) -> list[dict]:
     return results
 
 
-# Global Seek browser session — reused across calls to avoid re-solving Cloudflare per call
+# Global Seek browser session - reused across calls to avoid re-solving Cloudflare per call
 _seek_browser = None
 
 
@@ -170,7 +170,7 @@ async def _get_seek_page_async(url: str) -> str:
             kwargs = {"headless": False}
             if browser_path:
                 kwargs["browser_executable_path"] = browser_path
-                # Docker runs as root — Chrome needs --no-sandbox
+                # Docker runs as root - Chrome needs --no-sandbox
                 kwargs["browser_args"] = ["--no-sandbox", "--disable-dev-shm-usage"]
             _seek_browser = await uc.start(**kwargs)
         except Exception as e:
@@ -279,7 +279,7 @@ def scrape_prosple(search_term: str, city: str, max_results: int = 100) -> list[
     """Search graduate opportunities from au.prosple.com via their gateway GraphQL API."""
     city_key = city.lower().split(",")[0].strip()
 
-    # Don't filter by city — Prosple is a national grad jobs site,
+    # Don't filter by city - Prosple is a national grad jobs site,
     # most listings cover multiple cities. Dedup handles cross-city overlap.
     keywords = search_term
 
@@ -406,7 +406,7 @@ GRADCONNECTION_CATEGORIES = [
     "information-technology",
 ]
 
-# Junk patterns for GradConnection (events, webinars, competitions — not real job listings)
+# Junk patterns for GradConnection (events, webinars, competitions - not real job listings)
 _GC_JUNK_PATTERNS = re.compile(
     r"(?i)\b(?:webinar|information sessions?|careers? fair|workshop|competition|"
     r"women in consulting|future thinking|pre-registration|unlock your potential|"
@@ -421,7 +421,7 @@ _GC_JUNK_PATTERNS = re.compile(
 def scrape_gradconnection(search_term: str, city: str, max_pages: int = 10) -> list[dict]:
     """Scrape graduate job listings from au.gradconnection.com.
 
-    Note: GradConnection ignores the keywords param — returns all jobs in the
+    Note: GradConnection ignores the keywords param - returns all jobs in the
     category regardless. search_term is accepted for API compat but not used.
     Call this once per city, not once per search term.
     """
@@ -538,7 +538,7 @@ def scrape_au_sites(search_term: str, city: str) -> list[dict]:
     """Scrape Seek + LinkedIn for a search term + city.
 
     Prosple returns national results regardless of city, so it should be
-    called once per search term via scrape_prosple() directly — not here.
+    called once per search term via scrape_prosple() directly - not here.
     GradConnection ignores search terms so should be called once per city
     via scrape_gradconnection() directly. Indeed handled by JobSpy.
     """
@@ -629,7 +629,7 @@ def scrape_linkedin(search_term: str, city: str, max_results: int = 100) -> list
             break
         time.sleep(1.5)
 
-    # Fetch descriptions concurrently (3 threads — more gets rate-limited by LinkedIn)
+    # Fetch descriptions concurrently (3 threads - more gets rate-limited by LinkedIn)
     jobs_with_urls = [(i, job) for i, job in enumerate(results) if job.get("job_url")]
     if jobs_with_urls:
         with ThreadPoolExecutor(max_workers=3) as pool:

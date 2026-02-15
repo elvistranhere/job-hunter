@@ -89,10 +89,10 @@ export async function parseResumePdf(
   // Gemini 2.5-flash-lite with intelligent reasoning config
   const model = genAI.getGenerativeModel({
     model: "gemini-2.5-flash-lite",
-    systemInstruction: `You are a senior technical recruiter and career analyst with deep knowledge of software engineering stacks. You don't just extract text — you REASON about a candidate's true skill profile.
+    systemInstruction: `You are a senior technical recruiter and career analyst with deep knowledge of software engineering stacks. You don't just extract text - you REASON about a candidate's true skill profile.
 
 When analyzing a resume:
-- Infer implied skills: If someone builds React apps with TypeScript, they clearly know JavaScript, HTML, CSS, and likely npm/yarn — include these as strong/peripheral.
+- Infer implied skills: If someone builds React apps with TypeScript, they clearly know JavaScript, HTML, CSS, and likely npm/yarn - include these as strong/peripheral.
 - Read between the lines: A ".NET + C# + SQL Server" stack implies understanding of Entity Framework, LINQ, and REST APIs even if not explicitly listed.
 - Assess tier by IMPACT, not just frequency: A skill used to build the core product at a job is more important than one listed 3 times in a skills section.
 - Think about what a hiring manager would search for when trying to find this candidate.`,
@@ -103,7 +103,7 @@ When analyzing a resume:
     },
   });
 
-  const prompt = `Analyze this resume as a senior technical recruiter. Reason about the candidate's TRUE skill profile — not just what's written, but what's clearly implied by their experience.
+  const prompt = `Analyze this resume as a senior technical recruiter. Reason about the candidate's TRUE skill profile - not just what's written, but what's clearly implied by their experience.
 
 Resume:
 ---
@@ -127,7 +127,7 @@ SKILL INTELLIGENCE:
 - Do NOT include: soft skills, methodologies, abstract concepts, job functions, or hardware/devices
 
 TIER RULES (reason about each):
-- "core" (3-5 MAX): The technologies CENTRAL to this person's professional identity — used prominently across multiple roles/projects. Ask: "What would a recruiter say this person specializes in?"
+- "core" (3-5 MAX): The technologies CENTRAL to this person's professional identity - used prominently across multiple roles/projects. Ask: "What would a recruiter say this person specializes in?"
 - "strong": Technologies with demonstrated hands-on use in at least one role or significant project, OR clearly implied by deep use of related tech.
 - "peripheral": Technologies only listed without project evidence, used in coursework only, mentioned as secondary tools, or inferred but with minimal evidence.
 

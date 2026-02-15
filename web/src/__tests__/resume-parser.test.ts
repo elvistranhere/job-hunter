@@ -2,9 +2,9 @@
  * Unit tests for resume-parser utility functions.
  *
  * Scenarios tested:
- * 1. normalizeStringArray — various input types
- * 2. normalizeTier — valid/invalid tier strings
- * 3. exportProfileJson — correct JSON output and schema
+ * 1. normalizeStringArray - various input types
+ * 2. normalizeTier - valid/invalid tier strings
+ * 3. exportProfileJson - correct JSON output and schema
  * 4. Profile JSON ↔ Python scraper compatibility
  * 5. Edge cases: empty skills, duplicates, weight boundaries, special chars
  */
@@ -202,7 +202,7 @@ describe("buildExportedProfile (profile.json generation)", () => {
       minScore: 20,
     });
 
-    // Set deduplication — "react" appears once
+    // Set deduplication - "react" appears once
     expect(profile.keywords).toEqual(["react", "typescript"]);
   });
 
@@ -597,7 +597,7 @@ describe("Edge cases and concerns", () => {
       minScore: 20,
     });
 
-    // Both entries are preserved — Python side deduplicates
+    // Both entries are preserved - Python side deduplicates
     expect(profile.skills).toHaveLength(2);
     expect(profile.skills[0]!.name).toBe("React");
     expect(profile.skills[1]!.name).toBe("React");
@@ -624,7 +624,7 @@ describe("Edge cases and concerns", () => {
     expect(parsed.minScore).toBe(0);
   });
 
-  it("CONCERN: titles === roles (same reference) — is this intentional?", () => {
+  it("CONCERN: titles === roles (same reference) - is this intentional?", () => {
     // In page.tsx: titles: selectedRoles, roles: selectedRoles
     // Both fields point to the same data. This means any "title" search
     // in the Python scraper also uses roles. Verify this behavior.
@@ -639,7 +639,7 @@ describe("Edge cases and concerns", () => {
     expect(profile.titles).toStrictEqual(profile.roles);
   });
 
-  it("CONCERN: profile.json without minScore — Python scraper uses it?", () => {
+  it("CONCERN: profile.json without minScore - Python scraper uses it?", () => {
     // The profile.example.json doesn't have minScore.
     // The email_digest.py might use it. Verify the field exists.
     const profile = buildExportedProfile({

@@ -1,4 +1,4 @@
-# Job Hunter AU — Web App
+# Job Hunter AU - Web App
 
 Next.js 15 frontend for Job Hunter AU. Local profile builder with AI resume parsing and GitHub automation setup.
 

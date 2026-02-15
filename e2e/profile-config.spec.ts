@@ -141,7 +141,7 @@ test.describe("Skill modifications update JSON correctly", () => {
     expect((profile.skills as unknown[]).length).toBe(3);
 
     // Remove React via its × button
-    const reactPill = page.locator("select", { hasText: "Core — React" }).locator("..");
+    const reactPill = page.locator("select", { hasText: "Core - React" }).locator("..");
     await reactPill.locator("button[title='Remove skill']").click();
 
     profile = await getProfileJson(page);
@@ -166,7 +166,7 @@ test.describe("Skill modifications update JSON correctly", () => {
     expect((profile.skills as { tier: string }[])[0].tier).toBe("core");
 
     // Change React from core to peripheral using its in-pill select
-    const reactSelect = page.locator("select", { hasText: "Core — React" });
+    const reactSelect = page.locator("select", { hasText: "Core - React" });
     await reactSelect.selectOption("peripheral");
 
     profile = await getProfileJson(page);
@@ -323,17 +323,17 @@ test.describe("Navigation preserves state within steps", () => {
       page.locator("h1", { hasText: "Daily Automation Setup" }),
     ).toBeVisible();
 
-    // Navigate back — the "Back to Export" button goes to step 3 itself,
+    // Navigate back - the "Back to Export" button goes to step 3 itself,
     // but the step indicator should let us get back to configure
     // Actually, going back from Step 3 re-sets step to 3 with the current implementation
-    // The back button text is "Back to Export" which sets step(3) — let's use Start Over which goes to step 1
+    // The back button text is "Back to Export" which sets step(3) - let's use Start Over which goes to step 1
     // Instead, we go back via the step indicator if available, or use "Back to Export"
-    // Looking at the code: step 3's back button does setStep(3) — that's a bug, but let's test what actually happens
+    // Looking at the code: step 3's back button does setStep(3) - that's a bug, but let's test what actually happens
 
     // Click "Start Over" to go to step 1, then skip AI again
     // BUT that resets state. So instead test: step 2 → step 3 and verify step 3 has the profile data
 
-    // The profile JSON in Step 3 deploy is sent as `profileJson` — we can verify
+    // The profile JSON in Step 3 deploy is sent as `profileJson` - we can verify
     // the JSON was built in Step 2 by checking it persists to Step 3
     // Actually Step 3 doesn't show JSON preview. Let's just verify going step 2→3→2 within the session.
 

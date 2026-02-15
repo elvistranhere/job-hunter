@@ -245,7 +245,7 @@ def load_profile(path: str | Path) -> dict:
         except (TypeError, ValueError):
             weights[key] = default_value
 
-    # Search settings (new fields — backward-compatible defaults)
+    # Search settings (new fields - backward-compatible defaults)
     try:
         max_hours = int(profile_json.get("maxHours", 24))
     except (TypeError, ValueError):
@@ -289,7 +289,7 @@ def load_profile(path: str | Path) -> dict:
 
 # ─── Skill Tiers (FIX 4: weight by proficiency instead of flat 3pts) ────────
 SKILL_TIERS = {
-    # Core stack (5 pts) — daily drivers, resume headline skills
+    # Core stack (5 pts) - daily drivers, resume headline skills
     "react": 5,
     "typescript": 5,
     "next.js": 5,
@@ -298,7 +298,7 @@ SKILL_TIERS = {
     "python": 5,
     "tailwind css": 5,
     "tailwind": 5,
-    # Strong (3 pts) — solid experience, used in multiple projects
+    # Strong (3 pts) - solid experience, used in multiple projects
     "django": 3,
     "node.js": 3,
     "vite": 3,
@@ -310,7 +310,7 @@ SKILL_TIERS = {
     "github actions": 3,
     "vercel": 3,
     "javascript": 3,
-    # Peripheral (1 pt) — used but not primary
+    # Peripheral (1 pt) - used but not primary
     "redis": 1,
     "c++": 1,
     "java": 1,
@@ -830,7 +830,7 @@ def run_search(search_term: str, location: str, defaults: dict) -> pd.DataFrame 
 def scrape_all(locations: list[str], search_terms: list[str], defaults: dict) -> pd.DataFrame:
     """Orchestrate all scrapers with smart dedup-aware scheduling.
 
-    Strategy — each source is called at the right granularity to avoid duplicates:
+    Strategy - each source is called at the right granularity to avoid duplicates:
       • Indeed (JobSpy):     per city × per term  (city-specific results)
       • Seek:                per city × per term  (city-specific results)
       • LinkedIn:            per city × per term  (city-specific, fetches descriptions)
@@ -869,7 +869,7 @@ def scrape_all(locations: list[str], search_terms: list[str], defaults: dict) ->
                 all_dfs.append(pd.DataFrame(au_jobs))
 
     # ── National sources (called once per search term, not per city) ──────
-    print("\n  [Prosple — national]")
+    print("\n  [Prosple - national]")
     for j, term in enumerate(search_terms, 1):
         print(f"  ({j}/{len(search_terms)}) Prosple: {term}...", end=" ", flush=True)
         prosple_jobs = scrape_prosple(term, "australia")

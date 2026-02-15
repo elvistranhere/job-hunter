@@ -19,7 +19,7 @@ config/search.json
 profile.json
 .env
 
-# Resumes (bring your own — only README.md is tracked)
+# Resumes (bring your own - only README.md is tracked)
 resumes/*
 !resumes/README.md
 

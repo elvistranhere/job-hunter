@@ -1,5 +1,5 @@
 """
-Email digest for Job Hunter — renders scored jobs as HTML email and sends via Gmail SMTP.
+Email digest for Job Hunter - renders scored jobs as HTML email and sends via Gmail SMTP.
 
 Usage:
     uv run python email_digest.py                     # auto-detect latest CSV, send email
@@ -37,7 +37,7 @@ def _load_dotenv(path: str = ".env"):
 
 
 # ── Design tokens ───────────────────────────────────────────────────────────
-# Light mode is the default (inline styles — works in all email clients).
+# Light mode is the default (inline styles - works in all email clients).
 # Dark mode activates via @media (prefers-color-scheme: dark) for Apple Mail,
 # Gmail mobile, and other supporting clients.
 
@@ -266,7 +266,7 @@ def render_email_html(df: pd.DataFrame, min_score: float = 20.0) -> str:
 
     parts = []
 
-    # Dark mode CSS — overrides light mode inline styles for Apple Mail, Gmail mobile, etc.
+    # Dark mode CSS - overrides light mode inline styles for Apple Mail, Gmail mobile, etc.
     dark_css = f"""
     @media (prefers-color-scheme: dark) {{
       .email-body {{ background-color: {D_BG} !important; }}
@@ -288,7 +288,7 @@ def render_email_html(df: pd.DataFrame, min_score: float = 20.0) -> str:
     }}
     """
 
-    # Email wrapper — light mode default
+    # Email wrapper - light mode default
     parts.append(f"""<!DOCTYPE html>
 <html><head>
 <meta charset="utf-8">
@@ -303,7 +303,7 @@ def render_email_html(df: pd.DataFrame, min_score: float = 20.0) -> str:
 <body class="email-body" style="margin:0;padding:0;background:{L_BG};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','DM Sans',Roboto,sans-serif;color:{L_TEXT};">
 <table role="presentation" class="email-wrapper" style="width:100%;max-width:640px;margin:0 auto;background:{L_BG};">""")
 
-    # Header — amber accent bar
+    # Header - amber accent bar
     parts.append(f"""<tr><td style="padding:0;">
   <div style="height:3px;background:linear-gradient(90deg,{AMBER_600},{AMBER_400},{AMBER_600});"></div>
   <table role="presentation" style="width:100%;padding:28px 24px 20px;">
@@ -316,7 +316,7 @@ def render_email_html(df: pd.DataFrame, min_score: float = 20.0) -> str:
   </table>
 </td></tr>""")
 
-    # Stats bar — 4 metric cards
+    # Stats bar - 4 metric cards
     sites_summary = " · ".join(f"{s} ({c})" for s, c in sites.items())
     parts.append(f"""<tr><td style="padding:0 20px 16px;">
   <table role="presentation" style="width:100%;border-collapse:separate;border-spacing:8px 0;">

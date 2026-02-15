@@ -2,7 +2,7 @@
 
 Automated job discovery for Australia. Upload your resume, AI parses your skills, then GitHub Actions scrapes 5 job boards daily and emails you ranked results.
 
-**Zero hosting required** — just a profile file and a GitHub Actions cron job.
+**Zero hosting required** - just a profile file and a GitHub Actions cron job.
 
 ## Demo
 
@@ -35,7 +35,7 @@ flowchart LR
     style E fill:#92400e,stroke:#d97706,color:#fff
 ```
 
-> **You** — clone, configure, connect. **The app** — forks, commits profile, sets secrets, enables cron. **Every day** — scrapes 5 boards, scores jobs, emails you.
+> **You** - clone, configure, connect. **The app** - forks, commits profile, sets secrets, enables cron. **Every day** - scrapes 5 boards, scores jobs, emails you.
 
 ## Quick Start
 
@@ -46,7 +46,7 @@ flowchart LR
 ```bash
 git clone https://github.com/elvistranhere/job-hunter.git
 cd job-hunter/web
-cp .env.example .env        # Add your GEMINI_API_KEY (optional — you can skip AI)
+cp .env.example .env        # Add your GEMINI_API_KEY (optional - you can skip AI)
 npm install
 npm run dev                  # Opens on localhost:3006
 ```
@@ -85,7 +85,7 @@ GMAIL_USER=you@gmail.com GMAIL_APP_PASSWORD=xxxx EMAIL_TO=you@gmail.com \
 
 ### Manual GitHub Actions (without OAuth)
 
-1. **Fork this repo** — click [Fork](https://github.com/elvistranhere/job-hunter/fork)
+1. **Fork this repo** - click [Fork](https://github.com/elvistranhere/job-hunter/fork)
 2. **Commit `profile.json`** to the repo root:
    ```bash
    git add -f profile.json && git commit -m "Add my profile" && git push
@@ -96,13 +96,13 @@ GMAIL_USER=you@gmail.com GMAIL_APP_PASSWORD=xxxx EMAIL_TO=you@gmail.com \
    | `GMAIL_USER` | Your Gmail address |
    | `GMAIL_APP_PASSWORD` | [Gmail App Password](https://myaccount.google.com/apppasswords) (16-character) |
    | `EMAIL_TO` | Comma-separated recipient emails |
-4. **Enable Actions** — click "I understand my workflows, go ahead and enable them"
+4. **Enable Actions** - click "I understand my workflows, go ahead and enable them"
 5. **Uncomment the cron** in `.github/workflows/daily-jobs.yml`:
    ```yaml
    schedule:
      - cron: '0 21 * * *'   # 9pm UTC = 7am AEST
    ```
-6. **Run workflow** — **Actions > Daily Jobs > Run workflow**
+6. **Run workflow** - **Actions > Daily Jobs > Run workflow**
 
 </details>
 
@@ -137,11 +137,11 @@ The web app generates this file; CLI flags are optional overrides.
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `skills` | array | — | Skills with tiers: `core`, `strong`, `peripheral` |
-| `titles` | string[] | — | Professional titles for title matching |
-| `keywords` | string[] | — | Search terms for job boards |
-| `locations` | string[] | — | Australian cities to search |
-| `roles` | string[] | — | Role titles to search for |
+| `skills` | array | - | Skills with tiers: `core`, `strong`, `peripheral` |
+| `titles` | string[] | - | Professional titles for title matching |
+| `keywords` | string[] | - | Search terms for job boards |
+| `locations` | string[] | - | Australian cities to search |
+| `roles` | string[] | - | Role titles to search for |
 | `weights` | object | all `1.0` | Scoring multipliers (0 = off, 2 = double) |
 | `maxHours` | number | `24` | Max hours since posted |
 | `resultsPerSearch` | number | `20` | Results per search per site |
@@ -162,13 +162,13 @@ web/                        Next.js app (profile wizard)
 ## Environment Variables
 
 **Web app** (`web/.env`):
-- `GEMINI_API_KEY` — Google AI key for resume parsing (optional — you can skip AI)
-- `NEXT_PUBLIC_GITHUB_CLIENT_ID` — OAuth client ID for automated setup. A default is included in `.env.example`; the app handles the rest
+- `GEMINI_API_KEY` - Google AI key for resume parsing (optional - you can skip AI)
+- `NEXT_PUBLIC_GITHUB_CLIENT_ID` - OAuth client ID for automated setup. A default is included in `.env.example`; the app handles the rest
 
 **GitHub Actions secrets**:
-- `GMAIL_USER` — Gmail address
-- `GMAIL_APP_PASSWORD` — Gmail app password
-- `EMAIL_TO` — Comma-separated recipient emails
+- `GMAIL_USER` - Gmail address
+- `GMAIL_APP_PASSWORD` - Gmail app password
+- `EMAIL_TO` - Comma-separated recipient emails
 
 ## Contributing
 

@@ -203,7 +203,7 @@ class TestLoadProfileEdgeCases:
         path = write_profile(profile)
         result = load_profile(path)
 
-        # Python deduplicates by lowercase name — only first occurrence kept
+        # Python deduplicates by lowercase name - only first occurrence kept
         assert result["skills"].count("React") == 1
         assert result["skill_tiers"]["react"] == 5  # First was core = 5
 
@@ -428,7 +428,7 @@ class TestWebToPythonCompatibility:
         assert result["min_score"] == 25
 
     def test_extra_fields_ignored(self, full_profile):
-        """Web app may add fields that Python doesn't know about — should be ignored."""
+        """Web app may add fields that Python doesn't know about - should be ignored."""
         full_profile["newField"] = "some value"
         full_profile["anotherField"] = [1, 2, 3]
         path = write_profile(full_profile)

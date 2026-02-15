@@ -28,7 +28,7 @@ cd web && npm install
 ### Environment Variables
 
 ```bash
-# Root .env (CLI email — optional for local dev)
+# Root .env (CLI email - optional for local dev)
 cp .env.example .env
 
 # Web .env
@@ -47,20 +47,20 @@ uv run python scrape.py --profile profile.json
 uv run python email_digest.py --profile profile.json
 ```
 
-No database setup required — the web app runs entirely locally.
+No database setup required - the web app runs entirely locally.
 
 ## Project Structure
 
 ```text
-profile.example.json  — Starter profile template
-scrape.py             — Orchestration + scoring engine
-scrapers_au.py        — Job board scrapers (5 sources)
-email_digest.py       — HTML email rendering + SMTP sender
-web/                  — Next.js app (local profile builder)
-  src/app/page.tsx    — Single-page wizard UI
-  src/app/api/        — Resume parsing + GitHub setup APIs
-  src/server/lib/     — Resume parser (Gemini AI)
-.github/workflows/    — CI + daily jobs automation
+profile.example.json  - Starter profile template
+scrape.py             - Orchestration + scoring engine
+scrapers_au.py        - Job board scrapers (5 sources)
+email_digest.py       - HTML email rendering + SMTP sender
+web/                  - Next.js app (local profile builder)
+  src/app/page.tsx    - Single-page wizard UI
+  src/app/api/        - Resume parsing + GitHub setup APIs
+  src/server/lib/     - Resume parser (Gemini AI)
+.github/workflows/    - CI + daily jobs automation
 ```
 
 ## How to Add a New Scraper

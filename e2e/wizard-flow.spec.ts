@@ -110,7 +110,7 @@ test.describe("Wizard: Skip AI → Configure Profile → Verify JSON", () => {
     expect(profile.keywords).toContain("docker");
   });
 
-  test("cannot add empty skill — Add button visually disabled", async ({
+  test("cannot add empty skill - Add button visually disabled", async ({
     page,
   }) => {
     await page.click("button:has-text('Continue without AI')");
@@ -130,7 +130,7 @@ test.describe("Wizard: Skip AI → Configure Profile → Verify JSON", () => {
     await skillInput.fill("React");
     await page.click("button:has-text('Add')");
 
-    // Try to add "react" (lowercase) — should NOT add
+    // Try to add "react" (lowercase) - should NOT add
     await skillInput.fill("react");
     await page.click("button:has-text('Add')");
 

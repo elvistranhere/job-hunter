@@ -1,7 +1,7 @@
 [project]
 name = "job-hunter-au"
 version = "1.0.0"
-description = "AI-powered job discovery for Australia — scrapes 5 job boards, scores by fit, sends daily email digests"
+description = "AI-powered job discovery for Australia - scrapes 5 job boards, scores by fit, sends daily email digests"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"

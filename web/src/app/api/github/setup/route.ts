@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-// @ts-expect-error — tweetnacl-sealedbox-js has no type declarations
+// @ts-expect-error - tweetnacl-sealedbox-js has no type declarations
 import sealedbox from "tweetnacl-sealedbox-js";
 
 interface SetupRequest {
@@ -114,7 +114,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "Failed to get fork ref. Fork may still be creating — try again in a moment.",
+            "Failed to get fork ref. Fork may still be creating - try again in a moment.",
         },
         { status: 502 },
       );

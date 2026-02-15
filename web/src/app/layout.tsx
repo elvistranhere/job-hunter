@@ -17,7 +17,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Job Hunter — AI Resume Scorer for Australian Jobs",
+  title: "Job Hunter - AI Resume Scorer for Australian Jobs",
   description:
     "Upload your resume, we scrape every major Australian job board, score each listing against your skills, and email you the ranked results.",
   icons: [{ rel: "icon", url: "/favicon.ico" }],

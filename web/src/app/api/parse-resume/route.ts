@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   try {
     if (!env.GEMINI_API_KEY) {
       return NextResponse.json(
-        { error: "GEMINI_API_KEY is not configured. Add it to web/.env — get one at https://aistudio.google.com/apikey" },
+        { error: "GEMINI_API_KEY is not configured. Add it to web/.env - get one at https://aistudio.google.com/apikey" },
         { status: 500 },
       );
     }

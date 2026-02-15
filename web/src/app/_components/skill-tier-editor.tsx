@@ -113,9 +113,9 @@ function SkillPill({
           ${tierConfig.color}
         `}
       >
-        <option value="core">Core — {skill.name}</option>
-        <option value="strong">Strong — {skill.name}</option>
-        <option value="peripheral">Peripheral — {skill.name}</option>
+        <option value="core">Core - {skill.name}</option>
+        <option value="strong">Strong - {skill.name}</option>
+        <option value="peripheral">Peripheral - {skill.name}</option>
       </select>
       <svg
         className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-current opacity-50 pointer-events-none"
